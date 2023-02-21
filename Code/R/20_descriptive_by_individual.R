@@ -1,3 +1,6 @@
+# descriptive table, by individual, stratified by MHD status
+# breakdown of MHDs by type and sex
+
 library(tictoc)
 library(data.table)
 library(writexl)
@@ -38,7 +41,8 @@ DTu[sex=="2",sex:="Female"]
 DTu[,`:=`(age_base_cat=cut(age_base,breaks=c(15,30,40,50,60,70,Inf),right=FALSE),
           calyear_base_cat=cut(year(rna_d),breaks=c(2011,2014,2017,2020,Inf),right=FALSE),
           sex=factor(sex,levels=c("Male","Female")),
-          courier_ever=as.character(courier_ever))]
+          courier_ever=as.character(courier_ever),
+          art_type=factor(art_type,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")))]
 DTu[courier_ever==0,courier_ever:="No"]
 DTu[courier_ever==1,courier_ever:="Yes"]
 DTu[,courier_ever:=factor(courier_ever,levels=c("No","Yes"))]

@@ -59,7 +59,7 @@ setnames(DTrna,"art_sd","rna_d")
 DTrna[,art_ed:=NULL]
 DTrna[is.na(art),`:=`(art=0,drug="",art_type="None")]
 
-DTrna <- DTrna[art!=0]
+DTrna <- DTrna[art!=0 & art_type!="Other"]
 N_prev <- N
 N <- uniqueN(DTrna,"patient")
 print(paste0("*after excluding invididuals with no RNA VL while on ART and when above age ",min_age-1,": ",N, " (",N-N_prev,")"))
