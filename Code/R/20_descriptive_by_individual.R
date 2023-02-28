@@ -42,7 +42,7 @@ DTu[,`:=`(age_base_cat=cut(age_base,breaks=c(15,30,40,50,60,70,Inf),right=FALSE)
           calyear_base_cat=cut(year(rna_d),breaks=c(2011,2014,2017,2020,Inf),right=FALSE),
           sex=factor(sex,levels=c("Male","Female")),
           courier_ever=as.character(courier_ever),
-          art_type=factor(art_type,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")))]
+          art_type_cf=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")))]
 DTu[courier_ever==0,courier_ever:="No"]
 DTu[courier_ever==1,courier_ever:="Yes"]
 DTu[,courier_ever:=factor(courier_ever,levels=c("No","Yes"))]
@@ -60,7 +60,7 @@ for(v in paste0(which_mhd,"_ever"))
   
   if(v=="mhd_ever")   # creating single table with/without mental illness
   {
-    overall_df <- CreateTableOne(vars = c("sex","age_base_cat","age_base","calyear_base_cat","art_type","courier_ever"),
+    overall_df <- CreateTableOne(vars = c("sex","age_base_cat","age_base","calyear_base_cat","art_type_cf","courier_ever"),
                                  strata="mhd_ever",data=DTtemp,test=FALSE,addOverall=TRUE)
     overall_df <- print(overall_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
     overall_df <- data.table(data.frame(cbind(row.names(overall_df),overall_df)))

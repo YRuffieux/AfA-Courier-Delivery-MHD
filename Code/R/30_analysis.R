@@ -10,7 +10,7 @@ library(writexl)
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
-rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type")
+rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type_cf")
 
 tic()
 
@@ -22,10 +22,10 @@ VLS_threshold <- 400
 DTrna[,`:=`(vls_ind=as.numeric(rna_v<=VLS_threshold),
             age_current_cat=cut(age_current,breaks=c(15,30,40,50,60,70,Inf),right=FALSE),
             calyear_current_cat=cut(year(rna_d),breaks=c(2011,2014,2017,2020,Inf),right=FALSE),
-            art_type=factor(art_type,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")))]
+            art_type_cf=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")))]
 DTrna[,age_current_cat:=relevel(age_current_cat,"[40,50)")]
 
-DTrna <- DTrna[art_type!="Other"]
+stopifnot(DTrna[,all(!is.na(art_type_cf))])
 
 df_out <- data.frame(NULL)
 
