@@ -1,5 +1,5 @@
 # create table with one line per VL measurement, with all relevant exposures
-# takes 1-2 minutes
+# takes 2 minutes
 
 library(data.table)
 library(tictoc)
@@ -77,7 +77,11 @@ print(paste0("*after excluding invididuals with no RNA VL after initiating ART a
 #### identifying ARV delivery type (courier/non-courier) at time of each viral load count ####
 
 # MED_ATC_J dataset has been restricted to ARVs upstream
-DTarv <- tblARV[,.(patient,med_sd,courier)]
+DTarv <- tblARV[,.(patient,med_sd,practice_number,courier)]
+
+# manual correction, Optipharm is a courier delivery
+DTarv[practice_number=="0197440",courier:=1]
+
 DTarv <- DTarv[courier!=9]
 setorder(DTarv,"patient","med_sd","courier")
 rm(tblARV)
