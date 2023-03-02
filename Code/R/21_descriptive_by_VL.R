@@ -22,18 +22,30 @@ DTrna[,`:=`(age_current_cat=cut(age_current,breaks=c(15,30,40,50,60,70,Inf),righ
             calyear_current_cat=cut(year(rna_d),breaks=c(2011,2014,2017,2020,Inf),right=FALSE),
             sex=factor(sex,levels=c("Male","Female")),
             art_type_cf=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")),
-            VL_400=as.numeric(rna_v<=400),
+            VLS_50=factor(ifelse(rna_v<=50,"Suppressed","Unsuppressed"),levels=c("Suppressed","Unsuppressed")),
             courier=as.character(courier),
             mhd_ind=as.character(mhd_ind))]
 DTrna[courier==0,courier:="No"]
 DTrna[courier==1,courier:="Yes"]
-DTrna[,courier:=factor(courier,levels=c("No","Yes"))]
+DTrna[,courier:=factor(courier,levels=c("Yes","No"))]
 DTrna[mhd_ind==0,mhd_ind:="No"]
 DTrna[mhd_ind==1,mhd_ind:="Yes"]
 DTrna[,mhd_ind:=factor(mhd_ind,levels=c("No","Yes"))]
 
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","courier"),
-                                     strata="VL_400",data=DTrna,test=FALSE,addOverall=TRUE)
+# number of tests per patient
+DTrna[,`:=`(N_tests=.N,N_tests_courier=sum(courier=="Yes"),N_tests_noncourier=sum(courier=="No")),by="patient"]
+DTu <- unique(DTrna[,.(patient,N_tests,N_tests_courier,N_tests_noncourier)])
+print("Median number of VL measurements per patient while on courier delivery: ")
+print(DTu[,quantile(N_tests_courier,p=c(0.25,0.5,0.75))])
+print("Median number of VL measurements per patient while not on courier delivery: ")
+print(DTu[,quantile(N_tests_noncourier,p=c(0.25,0.5,0.75))])
+print("Median number of VL measurements per patient overall: ")
+print(DTu[,quantile(N_tests,p=c(0.25,0.5,0.75))])
+rm(DTu)
+
+# output table
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_50"),
+                                     strata="courier",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
 
