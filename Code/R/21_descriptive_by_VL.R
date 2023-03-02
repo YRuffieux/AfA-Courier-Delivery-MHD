@@ -23,6 +23,7 @@ DTrna[,`:=`(age_current_cat=cut(age_current,breaks=c(15,30,40,50,60,70,Inf),righ
             sex=factor(sex,levels=c("Male","Female")),
             art_type_cf=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+NRTI","PI+2NRTI")),
             VLS_50=factor(ifelse(rna_v<=50,"Suppressed","Unsuppressed"),levels=c("Suppressed","Unsuppressed")),
+            VLS_400=factor(ifelse(rna_v<=400,"Suppressed","Unsuppressed"),levels=c("Suppressed","Unsuppressed")),
             courier=as.character(courier),
             mhd_ind=as.character(mhd_ind))]
 DTrna[courier==0,courier:="No"]
@@ -44,7 +45,7 @@ print(DTu[,quantile(N_tests,p=c(0.25,0.5,0.75))])
 rm(DTu)
 
 # output table
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_50"),
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_50","VLS_400"),
                                      strata="courier",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))

@@ -16,7 +16,7 @@ tic()
 
 load(file=file.path(filepath_read,"AfA_VL_courier_MHD.RData"))
 
-VLS_threshold <- 400
+VLS_threshold <- 50
 
 # formatting
 DTrna[,`:=`(vls_ind=as.numeric(rna_v<=VLS_threshold),
@@ -65,6 +65,42 @@ df_out <- cbind(df_out,paste0(round(exp(lreg_int_coeffs[-1,1]),2)," (",
                        round(exp(lreg_int_CIs[-1,2]),2),")"))
 colnames(df_out)[4] <- "OR_with_interaction"
 
-write_xlsx(df_out,path=file.path(filepath_write,"ORs.xlsx"))
+write_xlsx(df_out,path=file.path(filepath_write,paste0("ORs_",VLS_threshold,".xlsx")))
+
+# additional analyses by calendar period
+
+reg_formula <- as.formula(paste0("vls_ind ~",paste0(setdiff(rf_vect,"calyear_current_cat"),collapse="+")))
+
+lreg <- glm(reg_formula, data=DTrna,family="binomial",subset=(calyear_current_cat=="[2011,2014)"))
+lreg_coeffs <- coeftest(lreg,vcov=vcovCL,cluster=~patient)
+lreg_CIs <- coefci(lreg,vcov=vcovCL,cluster=~patient)
+print(paste0("2011-2013: ",
+             round(exp(lreg_coeffs[2,1]),2)," (",
+             round(exp(lreg_CIs[2,1]),2),"-",
+             round(exp(lreg_CIs[2,2]),2),")"))
+
+lreg <- glm(reg_formula, data=DTrna,family="binomial",subset=(calyear_current_cat=="[2014,2017)"))
+lreg_coeffs <- coeftest(lreg,vcov=vcovCL,cluster=~patient)
+lreg_CIs <- coefci(lreg,vcov=vcovCL,cluster=~patient)
+print(paste0("2014-2016: ",
+             round(exp(lreg_coeffs[2,1]),2)," (",
+             round(exp(lreg_CIs[2,1]),2),"-",
+             round(exp(lreg_CIs[2,2]),2),")"))
+
+lreg <- glm(reg_formula, data=DTrna,family="binomial",subset=(calyear_current_cat=="[2017,2020)"))
+lreg_coeffs <- coeftest(lreg,vcov=vcovCL,cluster=~patient)
+lreg_CIs <- coefci(lreg,vcov=vcovCL,cluster=~patient)
+print(paste0("2017-2019: ",
+             round(exp(lreg_coeffs[2,1]),2)," (",
+             round(exp(lreg_CIs[2,1]),2),"-",
+             round(exp(lreg_CIs[2,2]),2),")"))
+
+lreg <- glm(reg_formula, data=DTrna,family="binomial",subset=(calyear_current_cat=="[2020,Inf)"))
+lreg_coeffs <- coeftest(lreg,vcov=vcovCL,cluster=~patient)
+lreg_CIs <- coefci(lreg,vcov=vcovCL,cluster=~patient)
+print(paste0("2020-2022: ",
+             round(exp(lreg_coeffs[2,1]),2)," (",
+             round(exp(lreg_CIs[2,1]),2),"-",
+             round(exp(lreg_CIs[2,2]),2),")"))
 
 toc()
