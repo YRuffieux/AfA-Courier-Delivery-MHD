@@ -1,6 +1,7 @@
 # logistic regression on viral load suppression (no/yes)
 # using generalized estimating equations to produce odds ratios and 95% CIs: https://www.jstatsoft.org/article/view/v015i02
 # exposure=courier status no/yes
+# 4-5 minutes total runtime with exchangeable correlation structure
 
 library(data.table)
 library(geepack)
@@ -11,13 +12,23 @@ filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/proce
 filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
 rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type_cf")
-correlation_structure <- "independence"
+correlation_structure <- "exchangeable"
+courier_lag <- 0                 # in months: 0, 6, or 12
+first_line_art <- FALSE          # whether to censor tests occuring during 2nd+ line ART
+VLS_threshold <- 400
 
 tic("Overall")
 
-load(file=file.path(filepath_read,"AfA_VL_courier_MHD.RData"))
+if(courier_lag==0)
+{
+  load(file=file.path(filepath_read,"AfA_VL_courier_MHD.RData"))
+} else
+{
+  load(file=file.path(filepath_read,paste0("AfA_VL_courier_MHD_lag",courier_lag,".RData")))
+}
 
-VLS_threshold <- 400
+if(first_line_art)
+  DTrna <- DTrna[art_first_line==1]
 
 # formatting
 DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
@@ -55,7 +66,15 @@ toc()
 df_out <- cbind(df_out,out)
 rm(out,cc,lreg,reg_formula)
 
-write_xlsx(df_out,path=file.path(filepath_write,paste0("ORs_status_",VLS_threshold,".xlsx")))
+savename <- "ORs_courier"
+if(courier_lag!=0)
+  savename <- paste0(savename,"_lag",courier_lag)
+if(first_line_art==TRUE)
+  savename <- paste0(savename,"_firstline")
+savename <- paste0(savename,"_vls",VLS_threshold,".xlsx")
+
+print(paste0("Save name: ",savename))
+write_xlsx(df_out,path=file.path(filepath_write,savename))
 
 tic("By calendar period")
 reg_formula <- as.formula(paste0("vls_ind ~",paste0(setdiff(rf_vect,c("calyear_current_cat","art_type_cf")),collapse="+")))

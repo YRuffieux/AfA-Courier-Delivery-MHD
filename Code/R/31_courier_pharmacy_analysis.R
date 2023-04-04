@@ -11,7 +11,7 @@ filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/proce
 filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
 rf_vect <- c("courier_cat","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type_cf")
-correlation_structure <- "independence"
+correlation_structure <- "exchangeable"
 
 tic("Overall")
 

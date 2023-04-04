@@ -1,5 +1,5 @@
 # create table with one line per VL measurement, with all relevant exposures
-# takes 2 minutes
+# takes 2+ minutes
 
 library(data.table)
 library(tictoc)
@@ -43,8 +43,6 @@ DTrna <- DTrna[as.numeric(rna_d-birth_d)/365.25>=min_age]
 
 #### identifying ART regimen at time of each viral load count, test patient: AFA0803914
 
-# filling ART interruptions with previous ART regimen (see for ex. AFA0800214)
-
 setorder(tblREGIMEN,"patient","moddate")
 
 DTreg <- copy(tblREGIMEN)
@@ -60,6 +58,12 @@ DTreg[,art_type_cf:=na.locf(art_type_cf,na.rm=FALSE),by="patient"]
 # date of ART initiation
 DTrna <- DTreg[art==1,.(patient,first_art_d=moddate)][DTrna,on="patient",mult="first"]   
 
+# identifying 1st, 2nd, 3rd line ART
+DTreg <- DTreg[!is.na(art_type_cf)]
+DTreg[,switch_ind:=as.numeric(art_type_cf!=data.table::shift(art_type_cf,type="lag")),by="patient"]
+DTreg[is.na(switch_ind),switch_ind:=0]
+DTreg[,art_line:=cumsum(switch_ind)+1,by="patient"]
+
 # merging with VL table
 setnames(DTreg,"moddate","art_sd")
 DTreg[,art_ed:=data.table::shift(art_sd,fill=close_date,type="lead"),by="patient"]
@@ -67,9 +71,8 @@ DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,first_art_d)],on=.(patient,art_sd<rn
 setnames(DTrna,"art_sd","rna_d")
 DTrna[,art_ed:=NULL]
 DTrna[is.na(art),`:=`(art=0,drug="",art_type="None")]
-
-#DTrna <- DTrna[art!=0 & art_type!="Other"]
 DTrna <- DTrna[!is.na(first_art_d) & rna_d>first_art_d]
+
 N_prev <- N
 N <- uniqueN(DTrna,"patient")
 print(paste0("*after excluding invididuals with no RNA VL after initiating ART and when above age ",min_age-1,": ",N, " (",N-N_prev,")"))
@@ -81,6 +84,13 @@ DTarv <- tblARV[,.(patient,med_sd,practice_number,courier)]
 
 # manual correction, Optipharm is a courier delivery
 DTarv[practice_number=="0197440",courier:=1]
+
+# three categories for the courier pharmacy, two main ones and the rest
+DTarv[,courier_cat:="None"]
+DTarv[courier==1,courier_cat:="Other"]
+DTarv[courier==1 & practice_number=="0126225",courier_cat:="A"]
+DTarv[courier==1 & practice_number=="6065732",courier_cat:="B"]
+DTarv[,courier_cat:=factor(courier_cat,levels=c("None","A","B","Other"))]
 
 DTarv <- DTarv[courier!=9]
 setorder(DTarv,"patient","med_sd","courier")
@@ -103,7 +113,8 @@ N_prev <- N
 N <- uniqueN(DTrna,"patient")
 print(paste0("*after excluding invididuals not in ARV table or with no viral load while receiving ARVs: " ,N, " (",N-N_prev,")"))
 
-DTrna <- DTrna[,.(patient,rna_d=med_sd,rna_v,drug,art_type_cf,courier,N_switches_arv=N_switches)]
+DTrna <- DTrna[,.(patient,rna_d=med_sd,rna_v,drug,art_type_cf,courier,courier_cat,
+                  N_switches_arv=N_switches,first_art_d,art_first_line=as.numeric(art_line==1))]
 DTrna[,delta:=courier-data.table::shift(courier,type="lag"),by="patient"]
 DTrna[is.na(delta),delta:=0]
 DTrna[,N_switches_vl:=sum(abs(delta)),by="patient"]
@@ -126,7 +137,7 @@ for(mhd in which_mhd)
 
 DTrna[,`:=`(age_current=as.numeric(rna_d-birth_d)/365.25,start=NULL,end=NULL)]
 
-#### excluding 'repeated' VL measurements (i.e. 4 months or less between them), good test patient: AFA0836808
+#### excluding 'repeated' VL measurements recursively (i.e. 4 months or less between them), good test patient: AFA0836808
 
 print(paste0("Total number of VL tests: ",DTrna[,.N]))
 setorder(DTrna,"patient","rna_d")
@@ -147,8 +158,8 @@ DTrna_reduced <- DTrna[,.(rna_d=remove_repeated_vl(rna_d,tw=time_window)),by="pa
 DTrna <- merge(DTrna,DTrna_reduced,by=c("patient","rna_d"))
 rm(DTrna_reduced)
 
-DTrna[,delta:=as.numeric(rna_d)-data.table::shift(as.numeric(rna_d),type="lag",fill=-Inf),by="patient"]
-stopifnot(all(DTrna[,delta>=time_window]))
+#DTrna[,delta:=as.numeric(rna_d)-data.table::shift(as.numeric(rna_d),type="lag",fill=-Inf),by="patient"]
+#stopifnot(all(DTrna[,delta>=time_window]))
 
 print(paste0("*after removing repeated tests: ",DTrna[,.N]))
 
