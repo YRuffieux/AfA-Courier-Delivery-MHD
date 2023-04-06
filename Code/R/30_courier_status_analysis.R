@@ -19,6 +19,11 @@ VLS_threshold <- 400
 
 tic("Overall")
 
+format_CI <- function(estimate,lower,upper,digits=2)
+  paste0(format(round(estimate,digits),nsmall=digits)," (",
+         format(round(lower,digits),nsmall=digits),"-",
+         format(round(upper,digits),nsmall=digits),")")
+
 if(courier_lag==0)
 {
   load(file=file.path(filepath_read,"AfA_VL_courier_MHD.RData"))
@@ -49,7 +54,7 @@ for(v in rf_vect)
   lreg <- geeglm(reg_formula,data=DTrna,family="binomial",corstr=correlation_structure,id=patient)
   cc <- data.table(coef(summary(lreg)))
   cc <- cc[,.(rf=names(coef(lreg)),estimate=exp(Estimate),lower=exp(Estimate-qnorm(0.975)*Std.err),upper=exp(Estimate+qnorm(0.975)*Std.err))]
-  out <- cc[rf!="(Intercept)",.(rf,OR_uni=paste0(round(estimate,digits=2)," (",round(lower,digits=2),"-",round(upper,digits=2),")"))]
+  out <- cc[rf!="(Intercept)",.(rf,OR_uni=format_CI(estimate,lower,upper))]
   df_out <- rbind(df_out,out)
   rm(lreg,reg_formula,cc,out)
 }
@@ -60,7 +65,7 @@ reg_formula <- as.formula(paste0("vls_ind ~",paste0(rf_vect,collapse="+")))
 lreg <- geeglm(reg_formula,data=DTrna,family="binomial",corstr=correlation_structure,id=patient)
 cc <- data.table(coef(summary(lreg)))
 cc <- cc[,.(rf=names(coef(lreg)),estimate=exp(Estimate),lower=exp(Estimate-qnorm(0.975)*Std.err),upper=exp(Estimate+qnorm(0.975)*Std.err))]
-out <- cc[rf!="(Intercept)",.(OR_mult=paste0(round(estimate,digits=2)," (",round(lower,digits=2),"-",round(upper,digits=2),")"))]
+out <- cc[rf!="(Intercept)",.(OR_mult=format_CI(estimate,lower,upper))]
 toc()
 
 df_out <- cbind(df_out,out)

@@ -46,7 +46,7 @@ print(DTu[,quantile(N_tests,p=c(0.25,0.5,0.75))])
 rm(DTu)
 
 # stratified by courier status (yes/no)
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_50","VLS_400","VLS_1000"),
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
                                      strata="courier",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
@@ -54,7 +54,7 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_status.xlsx"))
 
 # stratified by courier pharmacy
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_50","VLS_400","VLS_1000"),
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
                          strata="courier_cat",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
