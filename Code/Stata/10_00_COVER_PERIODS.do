@@ -14,8 +14,8 @@ format coverto_date_max %tdD_m_CY
 gen start=max(enrol_d,$open_d)
 gen end=min(drop_d,death_d,coverto_date_max,$close_d)
 format start end %tdD_m_CY
-gunique patient         // 474,076
-gunique patient if enrol_d>drop_d   // 6,165
+gunique patient         // 236,918
+gunique patient if enrol_d>drop_d   // 4,204
 drop if start>=end 
 
 * identifying last scheme code before the patient leaves the study

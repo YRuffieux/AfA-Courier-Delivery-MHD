@@ -11,7 +11,7 @@ filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Ou
 
 tic()
 
-load(file=file.path(filepath_load,"AfA_VL_courier_MHD.RData"))
+load(file=file.path(filepath_load,"AfA_VL.RData"))
 
 DTu <- copy(DTrna)
 setorder(DTu,"patient","rna_d")

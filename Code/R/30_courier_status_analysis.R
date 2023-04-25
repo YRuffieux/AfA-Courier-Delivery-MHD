@@ -103,7 +103,16 @@ lreg <- geeglm(reg_formula,data=DTrna[calyear_current_cat=="[2020,Inf)"],family=
 cc <- data.table(coef(summary(lreg)))
 cc <- cc[,.(rf=names(coef(lreg)),estimate=exp(Estimate),lower=exp(Estimate-qnorm(0.975)*Std.err),upper=exp(Estimate+qnorm(0.975)*Std.err))]
 print(cc[rf=="courier",paste0("2020-2022: ",round(estimate,digits=2)," (",round(lower,digits=2),"-",round(upper,digits=2),")")])
+
+lreg <- geeglm(reg_formula,data=DTrna[calyear_current_cat!="[2011,2014)"],family="binomial",corstr=correlation_structure,id=patient)
+cc <- data.table(coef(summary(lreg)))
+cc <- cc[,.(rf=names(coef(lreg)),estimate=exp(Estimate),lower=exp(Estimate-qnorm(0.975)*Std.err),upper=exp(Estimate+qnorm(0.975)*Std.err))]
+print(cc[rf=="courier",paste0("2014-2022: ",round(estimate,digits=2)," (",round(lower,digits=2),"-",round(upper,digits=2),")")])
+
 toc()
+
+
+
 
 rm(lreg,cc)
 gc(verbose=FALSE)

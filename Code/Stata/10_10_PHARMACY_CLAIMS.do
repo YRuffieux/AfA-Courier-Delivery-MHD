@@ -606,13 +606,15 @@
 			gen art_type = . 
 			replace art_type = 1 if nnrti ==1 & nrti >=2
 			replace art_type = 3 if pi ==1 & nrti >=2
-			replace art_type = 2 if ii ==1 & nrti >=1	
+			replace art_type = 2 if ii ==1 & nrti >=2	
 			replace art_type = 4 if art_type ==. & drug !=""
 			replace art_type = 9 if drug ==""
-			lab define art_type 1 "NNRTI+2NRTI" 2 "II+NRTI" 3 "PI+2NRTI" 4 "Other" 9 "None", replace
+			lab define art_type 1 "NNRTI+2NRTI" 2 "II+2NRTI" 3 "PI+2NRTI" 4 "Other" 9 "None", replace
 			lab val art_type art_type
 			tab art_type
 			tab drug if art_type ==3, sort mi
+							
+			tab art art_type				
 							
 		* Clean 
 			drop ei ii pi nnrti base nrti num_art
@@ -701,10 +703,10 @@
 			gen art_type = . 
 			replace art_type = 1 if nnrti ==1 & nrti >=2
 			replace art_type = 3 if pi ==1 & nrti >=2
-			replace art_type = 2 if ii ==1 & nrti >=1	
+			replace art_type = 2 if ii ==1 & nrti >=2	
 			replace art_type = 4 if art_type ==. & drug !=""
 			replace art_type = 9 if drug ==""
-			lab define art_type 1 "NNRTI+2NRTI" 2 "II+NRTI" 3 "PI+2NRTI" 4 "Other" 9 "None", replace
+			lab define art_type 1 "NNRTI+2NRTI" 2 "II+2NRTI" 3 "PI+2NRTI" 4 "Other" 9 "None", replace
 			lab val art_type art_type
 			tab art_type
 			tab drug if art_type ==3, sort mi

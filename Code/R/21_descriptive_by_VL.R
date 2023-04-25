@@ -10,7 +10,7 @@ filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Ou
 
 tic()
 
-load(file=file.path(filepath_load,"AfA_VL_courier_MHD.RData"))
+load(file=file.path(filepath_load,"AfA_VL.RData"))
 
 setorder(DTrna,"patient","rna_d")
 
@@ -53,6 +53,14 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_status.xlsx"))
 
+# stratified by calendar period and courier status (yes/no)
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400"),
+                         strata=c("courier","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
+df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+df_out <- data.table(cbind(row.names(df_out),df_out))
+
+write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_period_and_courier_status.xlsx"))
+
 # stratified by courier pharmacy
 df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
                          strata="courier_cat",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
@@ -61,6 +69,6 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_pharmacy.xlsx"))
 
-
+rm(df_out)
 
 toc()

@@ -7,19 +7,19 @@ library(foreign)
 library(zoo)
 
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean"
+#filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean_old"
 filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
+#filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed_old"
 filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
-filepath_stata <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/Stata/clean"
 
 courier_lag <- 0             # how many months to 'lag' the courier delivery and ART regimen
 min_age <- 15
 close_date <- as.Date("2022-07-01")
-which_mhd <- c("mhd","org","sub","psy","bip","dep","anx","adj")
 
 tic("Overall")
 
 tic("Loading data")
-load(file=file.path(filepath_processed,"AfA_MHD.RData"))
+load(file=file.path(filepath_processed,"AfA_base.RData"))
 load(file=file.path(filepath_read,"tblLAB_RNA.RData"))
 load(file=file.path(filepath_read,"tblREGIMEN.RData"))
 load(file=file.path(filepath_read,"tblARV.RData"))
@@ -27,19 +27,23 @@ toc()
 
 DTrna <- tblLAB_RNA[,.(patient,rna_d,rna_v)]
 
-DTrna <- merge(DTrna,DTmhd[,.(patient,birth_d,start,end)],by="patient")
+DTrna <- merge(DTrna,DTbas,by="patient")
 
-N <- uniqueN(DTmhd,"patient")
+N <- uniqueN(DTbas,"patient")
 
 print(paste0("Starting number of patients: ",N))
 
 # merging with RNA viral load
 
 setorder(DTrna,"patient","rna_d")
-DTrna <- DTrna[rna_d>start & rna_d<=end]
-DTrna[,`:=`(start=NULL,end=NULL)]
 
-DTrna <- DTrna[as.numeric(rna_d-birth_d)/365.25>=min_age]
+DTrna <- DTrna[rna_d>start & rna_d<=end]
+
+DTbas_untested <- DTbas[!DTrna,on="patient"]         # dataset with indiviudals having no LV test during follow-up
+
+N_prev <- N
+N <- uniqueN(DTrna,"patient")
+print(paste0("*after excluding invididuals with no RNA VL during their follow-up: ",N, " (",N-N_prev,")"))
 
 #### identifying ART regimen at time of each viral load count, test patient: AFA0803914
 
@@ -55,9 +59,6 @@ DTreg[,art_type_cf:=art_type]
 DTreg[art==0,art_type_cf:=NA]
 DTreg[,art_type_cf:=na.locf(art_type_cf,na.rm=FALSE),by="patient"]
 
-# date of ART initiation
-DTrna <- DTreg[art==1,.(patient,first_art_d=moddate)][DTrna,on="patient",mult="first"]   
-
 # identifying 1st, 2nd, 3rd line ART
 DTreg <- DTreg[!is.na(art_type_cf)]
 DTreg[,switch_ind:=as.numeric(art_type_cf!=data.table::shift(art_type_cf,type="lag")),by="patient"]
@@ -67,15 +68,11 @@ DTreg[,art_line:=cumsum(switch_ind)+1,by="patient"]
 # merging with VL table
 setnames(DTreg,"moddate","art_sd")
 DTreg[,art_ed:=data.table::shift(art_sd,fill=close_date,type="lead"),by="patient"]
-DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,first_art_d)],on=.(patient,art_sd<rna_d,art_ed>=rna_d)]
+DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d)],on=.(patient,art_sd<rna_d,art_ed>=rna_d)]
 setnames(DTrna,"art_sd","rna_d")
 DTrna[,art_ed:=NULL]
 DTrna[is.na(art),`:=`(art=0,drug="",art_type="None")]
-DTrna <- DTrna[!is.na(first_art_d) & rna_d>first_art_d]
-
-N_prev <- N
-N <- uniqueN(DTrna,"patient")
-print(paste0("*after excluding invididuals with no RNA VL after initiating ART and when above age ",min_age-1,": ",N, " (",N-N_prev,")"))
+stopifnot(DTrna[,all(!is.na(art_type_cf))])
 
 #### identifying ARV delivery type (courier/non-courier) at time of each viral load count ####
 
@@ -107,14 +104,10 @@ DTarv[,med_ed:=data.table::shift(med_sd,fill=close_date,type="lead"),by="patient
 
 # merging with VL table
 DTrna <- DTarv[DTrna,on=.(patient,med_sd<rna_d,med_ed>=rna_d)]
-DTrna <- DTrna[!is.na(courier)]
+stopifnot(DTrna[,all(!is.na(courier))])
 
-N_prev <- N
-N <- uniqueN(DTrna,"patient")
-print(paste0("*after excluding invididuals not in ARV table or with no viral load while receiving ARVs: " ,N, " (",N-N_prev,")"))
-
-DTrna <- DTrna[,.(patient,rna_d=med_sd,rna_v,drug,art_type_cf,courier,courier_cat,
-                  N_switches_arv=N_switches,first_art_d,art_first_line=as.numeric(art_line==1))]
+DTrna <- DTrna[,.(patient,sex,birth_d,rna_d=med_sd,mhd_d,rna_v,drug,art_type_cf,courier,courier_cat,
+                  N_switches_arv=N_switches,art_first_line=as.numeric(art_line==1))]
 DTrna[,delta:=courier-data.table::shift(courier,type="lag"),by="patient"]
 DTrna[is.na(delta),delta:=0]
 DTrna[,N_switches_vl:=sum(abs(delta)),by="patient"]
@@ -125,17 +118,10 @@ tab_vl <- unique(DTrna,by="patient")[,prop.table(table(N_switches_vl))]
 
 ##### appending MHD indicators #####
 
-DTrna <- merge(DTrna,DTmhd,by="patient")
+DTrna[,mhd_ind:=0]
+DTrna[!is.na(mhd_d) & mhd_d<rna_d,mhd_ind:=1]
 
-for(mhd in which_mhd)
-{
-  setnames(DTrna,paste0(mhd,"_d"),"exp_d")
-  DTrna[,eval(paste0(mhd,"_ind")):=0]
-  DTrna[!is.na(exp_d) & exp_d<rna_d,eval(paste0(mhd,"_ind")):=1]
-  DTrna[,exp_d:=NULL]
-}
-
-DTrna[,`:=`(age_current=as.numeric(rna_d-birth_d)/365.25,start=NULL,end=NULL)]
+DTrna[,`:=`(age_current=as.numeric(rna_d-birth_d)/365.25)]
 
 #### excluding 'repeated' VL measurements recursively (i.e. 4 months or less between them), good test patient: AFA0836808
 
@@ -167,16 +153,15 @@ toc()
 
 ##### saving full VL table #############
 
-DTrna[,drug:=NULL]
+DTrna[,`:=`(drug=NULL,birth_d=NULL,mhd_d=NULL)]
 
 if(courier_lag==0)
 {
-  save(DTrna,file=file.path(filepath_processed,"AfA_VL_courier_MHD.RData"))
-  write.dta(DTrna,file=file.path(filepath_stata,"AfA_VL_courier_MHD.dta"))
+  save(DTrna,file=file.path(filepath_processed,"AfA_VL.RData"))
+  save(DTbas_untested,file=file.path(filepath_processed,"AfA_VL_untested.RData"))
 } else
 {
-  save(DTrna,file=file.path(filepath_processed,paste0("AfA_VL_courier_MHD_lag",courier_lag,".RData")))
-  write.dta(DTrna,file=file.path(filepath_stata,paste0("AfA_VL_courier_MHD_lag",courier_lag,".dta")))
+  save(DTrna,file=file.path(filepath_processed,paste0("AfA_VL_lag",courier_lag,".RData")))
 }
 
 toc()

@@ -1,9 +1,11 @@
+
+# 10+ minute runtime
+
 library(readstata13)
 library(data.table)
 library(tictoc)
 
-
-filepath_source <- "C:/ISPM/Data/AfA-AfAc/Stata/AfA_20230109"
+filepath_source <- "C:/ISPM/Data/AfA-AfAc/Stata/AfA_20230420"
 filepath_clean <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/Stata/clean"
 filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean"
 
@@ -22,29 +24,11 @@ save(tblARV,file=file.path(filepath_write,"tblARV.RData"))
 rm(tblMED_ATC_J,tblARV)
 gc()
 
-# tblART <- data.table(read.dta13(file.path(filepath_source,"tblART.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblART,file=file.path(filepath_write,"tblART.RData"))
-
-# tblARVClaims <- data.table(read.dta13(file.path(filepath_source,"tblARVClaims.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblARVClaims,file=file.path(filepath_write,"tblARVClaims.RData"))
-
 tblBAS <- data.table(read.dta13(file.path(filepath_source,"tblBAS.dta"),convert.factors=TRUE,nonint.factors=TRUE))
 save(tblBAS,file=file.path(filepath_write,"tblBAS.RData"))
 
 tblCOVERPERIODS <- data.table(read.dta13(file.path(filepath_source,"tblCOVERPERIODS.dta"),convert.factors=TRUE,nonint.factors=TRUE))
 save(tblCOVERPERIODS,file=file.path(filepath_write,"tblCOVERPERIODS.RData"))
-
-# tblDIS <- data.table(read.dta13(file.path(filepath_source,"tblDIS.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblDIS,file=file.path(filepath_write,"tblDIS.RData"))
-
-# tblHOS <- data.table(read.dta13(file.path(filepath_source,"tblHOS.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblHOS,file=file.path(filepath_write,"tblHOS.RData"))
-
-# tblLAB <- data.table(read.dta13(file.path(filepath_source,"tblLAB.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblLAB,file=file.path(filepath_write,"tblLAB.RData"))
-
-# tblLAB_CD4 <- data.table(read.dta13(file.path(filepath_source,"tblLAB_CD4.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblLAB_CD4,file=file.path(filepath_write,"tblLAB_CD4.RData"))
 
 tblLAB_RNA <- data.table(read.dta13(file.path(filepath_source,"tblLAB_RNA.dta"),convert.factors=TRUE,nonint.factors=TRUE))
 save(tblLAB_RNA,file=file.path(filepath_write,"tblLAB_RNA.RData"))
@@ -52,12 +36,7 @@ save(tblLAB_RNA,file=file.path(filepath_write,"tblLAB_RNA.RData"))
 tblLTFU <- data.table(read.dta13(file.path(filepath_source,"tblLTFU.dta"),convert.factors=TRUE,nonint.factors=TRUE))
 save(tblLTFU,file=file.path(filepath_write,"tblLTFU.RData"))
 
-# tblPROGRAM <- data.table(read.dta13(file.path(filepath_source,"tblPROGRAM.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblPROGRAM,file=file.path(filepath_write,"tblPROGRAM.RData"))
-
-# tblREV_VITAL_STATUS <- data.table(read.dta13(file.path(filepath_source,"tblREV_VITAL_STATUS.dta"),convert.factors=TRUE,nonint.factors=TRUE))
-# save(tblREV_VITAL_STATUS,file=file.path(filepath_write,"tblREV_VITAL_STATUS.RData"))
-
+# FUPwide table created using custom Stata code, not Andreas'
 tblFUPwide <- data.table((read.dta13(file.path(filepath_clean,"FUPwide.dta"),convert.factors=TRUE,nonint.factors=TRUE)))
 save(tblFUPwide,file=file.path(filepath_write,"tblFUPwide.RData"))
 
