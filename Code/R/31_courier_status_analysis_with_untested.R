@@ -1,21 +1,22 @@
 # logistic regression on viral load suppression (no/yes)
 # using generalized estimating equations to produce odds ratios and 95% CIs: https://www.jstatsoft.org/article/view/v015i02
 # exposure=courier status no/yes
-# 4-5 minutes total runtime with exchangeable correlation structure
+# including untested follow-up
+# 8+ minutes total runtime with exchangeable correlation structure
 
 library(data.table)
 library(geepack)
 library(tictoc)
 library(writexl)
+library(zoo)
 
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
 rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type_cf")
 correlation_structure <- "exchangeable"
-courier_lag <- 0                 # in months: 0, 6, or 12
-first_line_art <- FALSE          # whether to censor tests occuring during 2nd+ line ART
 VLS_threshold <- 400
+carry_forward_vls <- FALSE       # whether to carry forward VL to fill in missing tests, otherwise will set to unsuppressed
 
 tic("Overall")
 
@@ -24,16 +25,7 @@ format_CI <- function(estimate,lower,upper,digits=2)
          format(round(lower,digits),nsmall=digits),"-",
          format(round(upper,digits),nsmall=digits),")")
 
-if(courier_lag==0)
-{
-  load(file=file.path(filepath_read,"AfA_VL.RData"))
-} else
-{
-  load(file=file.path(filepath_read,paste0("AfA_VL_lag",courier_lag,".RData")))
-}
-
-if(first_line_art)
-  DTrna <- DTrna[art_first_line==1]
+load(file=file.path(filepath_read,"AfA_VL_with_untested.RData"))
 
 # formatting
 DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
@@ -44,6 +36,11 @@ DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
 DTrna[,age_current_cat:=relevel(age_current_cat,"[40,50)")]
 
 stopifnot(DTrna[,all(!is.na(art_type_cf))])
+
+# missing RNA -> unsuppressed, or carry forward
+if(carry_forward_vls)
+  DTrna[,vls_ind:=na.locf(vls_ind,na.rm=FALSE),by="patient"]
+DTrna[is.na(vls_ind),vls_ind:=0]
 
 df_out <- data.frame(NULL)
 
@@ -71,15 +68,7 @@ toc()
 df_out <- cbind(df_out,out)
 rm(out,cc,lreg,reg_formula)
 
-savename <- "ORs_courier"
-if(courier_lag!=0)
-  savename <- paste0(savename,"_lag",courier_lag)
-if(first_line_art==TRUE)
-  savename <- paste0(savename,"_firstline")
-savename <- paste0(savename,"_vls",VLS_threshold,".xlsx")
-
-print(paste0("Save name: ",savename))
-write_xlsx(df_out,path=file.path(filepath_write,savename))
+write_xlsx(df_out,path=file.path(filepath_write,paste0("ORs_courier_vls",VLS_threshold,"_with_untested.xlsx")))
 
 tic("By calendar period")
 reg_formula <- as.formula(paste0("vls_ind ~",paste0(setdiff(rf_vect,c("calyear_current_cat","art_type_cf")),collapse="+")))
