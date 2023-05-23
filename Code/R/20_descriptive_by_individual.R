@@ -1,5 +1,4 @@
-# descriptive table, by individual, stratified by MHD status
-# breakdown of MHDs by type and sex
+# descriptive table by individual, overall and stratified by ART dispensing method
 
 library(tictoc)
 library(data.table)
@@ -13,7 +12,7 @@ tic()
 
 load(file=file.path(filepath_load,"AfA_VL.RData"))
 
-DTu <- copy(DTrna)
+DTu <- DTrna[!is.na(rna_v)]
 setorder(DTu,"patient","rna_d")
 
 # "ever" indicators
@@ -51,9 +50,18 @@ DTu[mhd_ever==0,mhd_ever:="No"]
 DTu[mhd_ever==1,mhd_ever:="Yes"]
 DTu[,mhd_ever:=factor(mhd_ever,levels=c("No","Yes"))]
 
+# no stratification
 overall_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),data=DTu)
 overall_df <- print(overall_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 overall_df <- data.table(data.frame(cbind(row.names(overall_df),overall_df)))
 write_xlsx(overall_df,path=file.path(filepath_tables,"descriptive_individuals.xlsx"))
+
+# by "ever" courier delivery yes/no
+courier_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),strata="courier_ever",
+                             test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
+courier_df <- print(courier_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
+courier_df <- data.table(data.frame(cbind(row.names(courier_df),courier_df)))
+write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_individuals_by_courier_status.xlsx"))
+
 
 toc()

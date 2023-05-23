@@ -7,8 +7,6 @@ library(tictoc)
 
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean"
 filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
-#filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean_old"
-#filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed_old"
 
 load(file=file.path(filepath_read,"tblBAS.RDAta"))
 load(file=file.path(filepath_read,"ICD10_F.RDAta"))

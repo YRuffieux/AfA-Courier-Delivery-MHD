@@ -1,4 +1,5 @@
 # create table with one line per VL measurement, with all relevant exposures
+# "filling in" stretches of untested follow-up with missing RNA values
 # takes 1-2 minutes
 
 library(data.table)
@@ -7,12 +8,10 @@ library(foreign)
 library(zoo)
 
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean"
-#filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean_old"
 filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
-#filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed_old"
 filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 
-courier_lag <- 0             # how many months to 'lag' the courier delivery and ART regimen
+courier_lag <- 0
 min_age <- 15
 close_date <- as.Date("2022-07-01")
 
@@ -39,14 +38,14 @@ setorder(DTrna,"patient","rna_d")
 
 DTrna <- DTrna[rna_d>start & rna_d<=end]
 
-N_prev <- N
-N <- uniqueN(DTrna,"patient")
-print(paste0("*after excluding invididuals with no RNA VL during their follow-up: ",N, " (",N-N_prev,")"))
+DTbas_untested <- DTbas[!DTrna,on="patient"]         # dataset with indiviudals having no VL test during follow-up
 
 #### excluding 'repeated' VL measurements recursively (i.e. 4 months or less between them), good test patient: AFA0836808
 
 print(paste0("Total number of VL tests: ",DTrna[,.N]))
 setorder(DTrna,"patient","rna_d")
+
+DTrna <- unique(DTrna,by=c("patient","rna_d"))         # removing tests on same day
 
 time_window <- 122         # max days for repeated VL measurement
 
@@ -64,12 +63,55 @@ DTrna_reduced <- DTrna[,.(rna_d=remove_repeated_vl(rna_d,tw=time_window)),by="pa
 DTrna <- merge(DTrna,DTrna_reduced,by=c("patient","rna_d"))
 rm(DTrna_reduced)
 
-#DTrna[,delta:=as.numeric(rna_d)-data.table::shift(as.numeric(rna_d),type="lag",fill=-Inf),by="patient"]
-#stopifnot(all(DTrna[,delta>=time_window]))
-
 print(paste0("*after removing repeated tests: ",DTrna[,.N]))
 
 toc()
+
+###### filling in stretches of follow-up with no testing, inserting dummy VLs every six months
+
+tic("Filling in RNA tests")
+
+# input dates assumed to be sorted already, with: start < all rna dates < end
+fill_rna <- function(d=c(),start,stop,tw=365.25)
+{
+  x <- c(start,d,stop)
+  i <- which(diff(x)>tw)
+  if(length(i)==0)
+    return(x[-c(1,length(x))])
+  i <- i[1]
+  x <- c(x[1:i],x[i]+tw/2,x[(i+1):length(x)])
+  return(fill_rna(d=x[-c(1,length(x))],start=start,stop=stop,tw=tw))
+}
+
+DTrna_untested <- DTbas_untested[,.(rna_d=as.Date(fill_rna(start=as.numeric(start)[1],stop=as.numeric(end)[1])),
+                                    rna_v=NA,sex,birth_d,mhd_d),
+                                 by="patient"]
+DTrna_untested <- DTrna_untested[!is.na(rna_d)]   # removing those with less than one year of follow-up
+
+print(paste0("Number of untested persons added: ",uniqueN(DTrna_untested,"patient")))
+print(paste0("*including ",DTrna_untested[,.N]," tests"))
+
+# some good test cases:
+# AFA0800342 has huge gap in the middle of follow-up
+# AFA0800494 gap at the start
+# AFA0800672 gap at the end
+
+X <- DTrna[,.(rna_d=as.Date(fill_rna(d=as.numeric(rna_d),start=as.numeric(start)[1],stop=as.numeric(end)[1]))),
+              by="patient"]
+X <- merge(DTrna[,.(patient,rna_d,rna_v)],X,by=c("patient","rna_d"),all.y=TRUE)    # newly added RNA tests -> missing values
+DTrna <- DTrna[,.(patient,sex,birth_d,mhd_d)][X,on="patient",mult="first"]
+rm(X)
+setorder(DTrna,"patient","rna_d")
+gc(verbose=FALSE)
+
+print(paste0("Number of additional tests in tested individuals: ", sum(DTrna[,sum(is.na(rna_v))])))
+
+toc()
+
+# appending untested individuals to dataset
+DTrna_untested[,tested:=0]
+DTrna <- rbind(DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d,tested=1)],DTrna_untested)
+rm(DTrna_untested)
 
 #### identifying ART regimen at time of each viral load count, test patient: AFA0803914
 
@@ -98,7 +140,9 @@ DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d)],on=.(patient,art
 setnames(DTrna,"art_sd","rna_d")
 DTrna[,art_ed:=NULL]
 DTrna[is.na(art),`:=`(art=0,drug="",art_type="None")]
-stopifnot(DTrna[,all(!is.na(art_type_cf))])
+if(courier_lag==0)
+  stopifnot(DTrna[,all(!is.na(art_type_cf))])
+DTrna <- DTrna[!is.na(art_type_cf)]
 
 #### identifying ARV delivery type (courier/non-courier) at time of each viral load count ####
 

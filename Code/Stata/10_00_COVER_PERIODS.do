@@ -4,7 +4,6 @@ tab scheme_code, mi
 codebook coverfrom_date    
 codebook coverto_date
 
-* periods with no scheme code have no start date and vice versa; they all are isolated cases, i.e. thsese patients have no other cover period
 merge m:1 patient using "$source/tblBAS", keep(match) keepusing(enrol_d birth_d) nogen
 merge m:1 patient using "$source/tblLTFU", keep(match) keepusing(drop_d death_d) nogen
 

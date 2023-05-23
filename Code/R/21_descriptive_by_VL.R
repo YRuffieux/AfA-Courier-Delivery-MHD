@@ -13,6 +13,7 @@ tic()
 load(file=file.path(filepath_load,"AfA_VL.RData"))
 
 setorder(DTrna,"patient","rna_d")
+DTrna <- DTrna[!is.na(rna_v)]
 
 # formatting
 DTrna[,sex:=as.character(sex)]
@@ -29,7 +30,7 @@ DTrna[,`:=`(age_current_cat=cut(age_current,breaks=c(15,30,40,50,60,70,Inf),righ
             mhd_ind=as.character(mhd_ind))]
 DTrna[courier==0,courier:="No"]
 DTrna[courier==1,courier:="Yes"]
-DTrna[,courier:=factor(courier,levels=c("Yes","No"))]
+DTrna[,courier:=factor(courier,levels=c("No","Yes"))]
 DTrna[mhd_ind==0,mhd_ind:="No"]
 DTrna[mhd_ind==1,mhd_ind:="Yes"]
 DTrna[,mhd_ind:=factor(mhd_ind,levels=c("No","Yes"))]
@@ -53,7 +54,7 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_status.xlsx"))
 
-# stratified by calendar period and courier status (yes/no)
+# stratified by calendar period and courier status (no/yes)
 df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400"),
                          strata=c("courier","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
@@ -61,13 +62,13 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_period_and_courier_status.xlsx"))
 
-# stratified by courier pharmacy
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
-                         strata="courier_cat",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-df_out <- data.table(cbind(row.names(df_out),df_out))
-
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_pharmacy.xlsx"))
+# # stratified by courier pharmacy
+# df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
+#                          strata="courier_cat",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
+# df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+# df_out <- data.table(cbind(row.names(df_out),df_out))
+# 
+# write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_pharmacy.xlsx"))
 
 rm(df_out)
 
