@@ -84,7 +84,7 @@ fill_rna <- function(d=c(),start,stop,tw=365.25)
 }
 
 DTrna_untested <- DTbas_untested[,.(rna_d=as.Date(fill_rna(start=as.numeric(start)[1],stop=as.numeric(end)[1])),
-                                    rna_v=NA,sex,birth_d,mhd_d),
+                                    rna_v=NA,sex,birth_d,mhd_d,start,end),
                                  by="patient"]
 DTrna_untested <- DTrna_untested[!is.na(rna_d)]   # removing those with less than one year of follow-up
 
@@ -99,7 +99,7 @@ print(paste0("*including ",DTrna_untested[,.N]," tests"))
 X <- DTrna[,.(rna_d=as.Date(fill_rna(d=as.numeric(rna_d),start=as.numeric(start)[1],stop=as.numeric(end)[1]))),
               by="patient"]
 X <- merge(DTrna[,.(patient,rna_d,rna_v)],X,by=c("patient","rna_d"),all.y=TRUE)    # newly added RNA tests -> missing values
-DTrna <- DTrna[,.(patient,sex,birth_d,mhd_d)][X,on="patient",mult="first"]
+DTrna <- DTrna[,.(patient,sex,birth_d,mhd_d,start,end)][X,on="patient",mult="first"]
 rm(X)
 setorder(DTrna,"patient","rna_d")
 gc(verbose=FALSE)
@@ -110,7 +110,7 @@ toc()
 
 # appending untested individuals to dataset
 DTrna_untested[,tested:=0]
-DTrna <- rbind(DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d,tested=1)],DTrna_untested)
+DTrna <- rbind(DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d,tested=1,start,end)],DTrna_untested)
 rm(DTrna_untested)
 
 #### identifying ART regimen at time of each viral load count, test patient: AFA0803914
@@ -136,7 +136,7 @@ DTreg[,art_line:=cumsum(switch_ind)+1,by="patient"]
 # merging with VL table
 setnames(DTreg,"moddate","art_sd")
 DTreg[,art_ed:=data.table::shift(art_sd,fill=close_date,type="lead"),by="patient"]
-DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d)],on=.(patient,art_sd<rna_d,art_ed>=rna_d)]
+DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d,start,end)],on=.(patient,art_sd<rna_d,art_ed>=rna_d)]
 setnames(DTrna,"art_sd","rna_d")
 DTrna[,art_ed:=NULL]
 DTrna[is.na(art),`:=`(art=0,drug="",art_type="None")]
@@ -148,9 +148,6 @@ DTrna <- DTrna[!is.na(art_type_cf)]
 
 # MED_ATC_J dataset has been restricted to ARVs upstream
 DTarv <- tblARV[,.(patient,med_sd,practice_number,courier)]
-
-# manual correction, Optipharm is a courier delivery
-DTarv[practice_number=="0197440",courier:=1]
 
 # three categories for the courier pharmacy, two main ones and the rest
 DTarv[,courier_cat:="None"]
@@ -177,7 +174,7 @@ DTrna <- DTarv[DTrna,on=.(patient,med_sd<rna_d,med_ed>=rna_d)]
 stopifnot(DTrna[,all(!is.na(courier))])
 
 DTrna <- DTrna[,.(patient,sex,birth_d,rna_d=med_sd,mhd_d,rna_v,drug,art_type_cf,courier,courier_cat,
-                  N_switches_arv=N_switches,art_first_line=as.numeric(art_line==1))]
+                  N_switches_arv=N_switches,art_first_line=as.numeric(art_line==1),start,end)]
 DTrna[,delta:=courier-data.table::shift(courier,type="lag"),by="patient"]
 DTrna[is.na(delta),delta:=0]
 DTrna[,N_switches_vl:=sum(abs(delta)),by="patient"]
