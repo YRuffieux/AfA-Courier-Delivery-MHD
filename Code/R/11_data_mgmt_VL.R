@@ -36,7 +36,8 @@ print(paste0("Starting number of patients: ",N))
 
 setorder(DTrna,"patient","rna_d")
 
-DTrna <- DTrna[rna_d>start & rna_d<=end]
+#DTrna <- DTrna[rna_d>start & rna_d<=end]
+DTrna <- DTrna[rna_d>=start & rna_d<end]
 
 DTbas_untested <- DTbas[!DTrna,on="patient"]         # dataset with indiviudals having no VL test during follow-up
 

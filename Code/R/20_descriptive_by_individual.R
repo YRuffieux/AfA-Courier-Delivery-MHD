@@ -12,7 +12,7 @@ tic()
 
 load(file=file.path(filepath_load,"AfA_VL.RData"))
 
-DTu <- DTrna[!is.na(rna_v)]
+DTu <- DTrna[!is.na(rna_v)]               # removing 'fake' tests
 setorder(DTu,"patient","rna_d")
 
 # "ever" indicators

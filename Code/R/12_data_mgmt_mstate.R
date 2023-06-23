@@ -1,9 +1,13 @@
+# data preparation for multi-state analysis of courier delivery
+
 library(data.table)
 library(tictoc)
 
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean"
 filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
+
+set.seed(1512)
 
 tic()
 
@@ -15,22 +19,32 @@ setorder(DTrna,"patient","rna_d")
 
 DTrna <- DTrna[,.(patient,rna_d,start,end)]
 
-# censoring 6 months after the last VL measurement
+# fetching start/end dates from RNA table: censoring 6 months after the last VL measurement, left-truncating at first VL measurement
+DTrna <- DTrna[,.(patient,first_rna_d=rna_d)][DTrna,on="patient",mult="first"]
 DTrna <- DTrna[,.(patient,last_rna_d=rna_d)][DTrna,on="patient",mult="last"]
-DTrna[,end:=pmin(end,last_rna_d+365.25/2)]
-stopifnot(DTrna[,all(start<end)])
-DTrna[,`:=`(rna_d=NULL,last_rna_d=NULL)]
+DTrna[,`:=`(start=pmax(start,first_rna_d),end=pmin(end,last_rna_d+365.25/2))]
+DTrna <- DTrna[start<end]
+DTrna[,`:=`(rna_d=NULL,first_rna_d=NULL,last_rna_d=NULL)]
 
 close_date <- DTrna[,max(end)]
 
 DTrna <- unique(DTrna)
 
-# courier status information, AFA0800228, AFA0800248, mistake with AFA0800267, probably because of both courier and retail on samy day
-DTms <- tblARV[,.(patient,med_sd,practice_number,courier)]
+# courier status information from ART table
+DTms <- tblARV[,.(patient,med_sd,courier)]
 DTms <- DTms[courier!=9]
 setorder(DTms,"patient","med_sd")
-DTms[,practice_number:=NULL]
 
+# resolving cases where an individual has both courier and retail on same day, see for ex. AFA0800267 and AFA0800526
+DTms[,`:=`(n_courier=sum(courier==1),n_retail=sum(courier==0)),by=.(patient,med_sd)]
+DTms[n_courier>n_retail,courier:=1]   # more courier records on the day than retail records -> courier wins
+DTms[n_courier<n_retail,courier:=0]   # more retail records on the day than courier records -> retail win
+DTms[,`:=`(n_courier=NULL,n_retail=NULL)]
+DTms <- DTms[sample(1:.N)]            # otherwise choosing randomly by shuffling entire dataset and picking first records each day
+DTms <- unique(DTms,by=c("patient","med_sd"))
+setorder(DTms,"patient","med_sd")
+
+# identifying switches in dispensing method and throwing away all intermediate records
 DTms[,delta:=abs(courier-data.table::shift(courier,type="lag")),by="patient"]
 DTms[is.na(delta),delta:=0]
 DTms[,n_switch:=cumsum(delta),by="patient"]
@@ -40,11 +54,13 @@ DTms[,med_ed:=data.table::shift(med_sd,type="lead"),by="patient"]
 DTms[is.na(med_ed),med_ed:=close_date]
 rm(close_date)
 
+# left-truncation and right-censoring based on follow-up time
 DTms <- merge(DTms,DTrna,by="patient")
 DTms[,`:=`(start=pmax(start,med_sd),end=pmin(end,med_ed,na.rm=TRUE))]
 DTms <- DTms[start<end]
 DTms[,`:=`(med_sd=NULL,med_ed=NULL)]
 
+# multi-state format
 DTms[courier==1,`:=`(from="Courier",to="Retail")]
 DTms[courier==0,`:=`(from="Retail",to="Courier")]
 DTms[,status:=1]
@@ -53,16 +69,18 @@ DTms[n==N,status:=0]
 DTms[,`:=`(n=NULL,N=NULL,courier=NULL)]
 
 # appending 'dummy' starting states (necessary for transition probabilities)
-X <- unique(DTms[,.(patient,start,from)],by="patient")   # starting state for each patient (courier/retail)
+X <- unique(DTms[,.(patient,start,from)],by="patient")   # starting dispensing method for each patient
 X[,`:=`(end=start,from="Entry",to=from,status=1)]
 X[,start:=start-1]
-Y <- unique(DTms[,.(patient,start,to)],by="patient")     # non-starting state (courier/retail)
+Y <- unique(DTms[,.(patient,start,to)],by="patient")
 Y[,`:=`(end=start,from="Entry",status=0)]
 Y[,start:=start-1]
-
 DTms <- rbind(DTms,X[,.(patient,start,end,from,to,status)])
 DTms <- rbind(DTms,Y[,.(patient,start,end,from,to,status)])
 setorder(DTms,"patient","start","to")
 rm(X,Y)
+
+# saving multi-state dataset
+save(DTms,file=file.path(filepath_processed,"AfA_mstate.RData"))
 
 toc()
