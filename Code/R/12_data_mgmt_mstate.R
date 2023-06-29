@@ -13,6 +13,7 @@ tic()
 
 load(file=file.path(filepath_processed,"AfA_VL.RData"))
 load(file=file.path(filepath_read,"tblARV.RData"))
+load(file=file.path(filepath_read,"tblCOVERPERIODS.RData"))
 
 DTrna <- DTrna[!is.na(rna_v)]               # removing 'fake' tests
 setorder(DTrna,"patient","rna_d")
@@ -30,6 +31,11 @@ close_date <- DTrna[,max(end)]
 
 DTrna <- unique(DTrna)
 
+# insurance scheme at baseline
+setorder(tblCOVERPERIODS,"patient","coverfrom_date")
+DTrna <- tblCOVERPERIODS[,.(patient,coverfrom_date,scheme_code_base=scheme_code)][DTrna,on=.(patient,coverfrom_date<=start),mult="last"]
+DTrna <- DTrna[,.(patient,start=coverfrom_date,end,scheme_code_base)]
+
 # courier status information from ART table
 DTms <- tblARV[,.(patient,med_sd,courier)]
 DTms <- DTms[courier!=9]
@@ -38,7 +44,7 @@ setorder(DTms,"patient","med_sd")
 # resolving cases where an individual has both courier and retail on same day, see for ex. AFA0800267 and AFA0800526
 DTms[,`:=`(n_courier=sum(courier==1),n_retail=sum(courier==0)),by=.(patient,med_sd)]
 DTms[n_courier>n_retail,courier:=1]   # more courier records on the day than retail records -> courier wins
-DTms[n_courier<n_retail,courier:=0]   # more retail records on the day than courier records -> retail win
+DTms[n_courier<n_retail,courier:=0]   # more retail records on the day than courier records -> retail wins
 DTms[,`:=`(n_courier=NULL,n_retail=NULL)]
 DTms <- DTms[sample(1:.N)]            # otherwise choosing randomly by shuffling entire dataset and picking first records each day
 DTms <- unique(DTms,by=c("patient","med_sd"))
@@ -69,14 +75,10 @@ DTms[n==N,status:=0]
 DTms[,`:=`(n=NULL,N=NULL,courier=NULL)]
 
 # appending 'dummy' starting states (necessary for transition probabilities)
-X <- unique(DTms[,.(patient,start,from)],by="patient")   # starting dispensing method for each patient
-X[,`:=`(end=start,from="Entry",to=from,status=1)]
-X[,start:=start-1]
-Y <- unique(DTms[,.(patient,start,to)],by="patient")
-Y[,`:=`(end=start,from="Entry",status=0)]
-Y[,start:=start-1]
-DTms <- rbind(DTms,X[,.(patient,start,end,from,to,status)])
-DTms <- rbind(DTms,Y[,.(patient,start,end,from,to,status)])
+X <- unique(DTms[,.(patient,start=start-1,end=start,scheme_code_base,from="Entry",to=from,status=1)],by="patient")
+Y <- unique(DTms[,.(patient,start=start-1,end=start,scheme_code_base,from="Entry",to,status=0)],by="patient")
+DTms <- rbind(DTms,X)
+DTms <- rbind(DTms,Y)
 setorder(DTms,"patient","start","to")
 rm(X,Y)
 
