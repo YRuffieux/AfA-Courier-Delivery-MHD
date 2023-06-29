@@ -4,9 +4,11 @@ library(tictoc)
 library(data.table)
 library(writexl)
 library(tableone)
+library(ggplot2)
 
 filepath_load <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
+filepath_plot <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Plots"
 
 tic()
 
@@ -62,13 +64,27 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_period_and_courier_status.xlsx"))
 
-# # stratified by courier pharmacy
-# df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
-#                          strata="courier_cat",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-# df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-# df_out <- data.table(cbind(row.names(df_out),df_out))
-# 
-# write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_pharmacy.xlsx"))
+# Number of VL tests by year and medical scheme (BON/PLM/Other)
+DTrna[,`:=`(scheme_code_cat=scheme_code,calyear=factor(year(rna_d)))]
+DTrna[!scheme_code%in%c("BON","PLM"),scheme_code_cat:="Other"]
+DTrna[,scheme_code_cat:=factor(scheme_code_cat,levels=c("BON","PLM","Other"))]
+pp_stack_scheme <- ggplot(data=DTrna,aes(x=calyear,fill=scheme_code_cat)) +
+  geom_bar(position="stack",stat="count") +
+  theme_bw() +
+  theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+        axis.title=element_text(size=10), axis.text=element_text(size=10),legend.position="bottom") +
+  labs(x="Year of viral load test",y="Count",fill="Medical scheme")
+ggsave(pp_stack_scheme,filename=file.path(filepath_plot,"number_VL_test_by_year_and_scheme.png"),height=4,width=6,dpi=600)
+
+# Number of VL tests by year and ART regimen (NNRTI/II/PI)
+pp_stack_regimen <- ggplot(data=DTrna,aes(x=calyear,fill=art_type_cf)) +
+  geom_bar(position="stack",stat="count") +
+  theme_bw() +
+  theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+        axis.title=element_text(size=10), axis.text=element_text(size=10),legend.position="bottom") +
+  labs(x="Year of viral load test",y="Count",fill="ART regimen")
+ggsave(pp_stack_regimen,filename=file.path(filepath_plot,"number_VL_test_by_year_and_regimen.png"),height=4,width=6,dpi=600)
+
 
 rm(df_out)
 

@@ -1,8 +1,3 @@
-
-*** Main questions regarding this analysis:
-* is the ARV delivery method (courier vs. no courier) associated with HIV outcomes (adherence, viral suppression) 
-* is this association moderated by mental health status
-
 *** CLEAN PAHARMACY CLAIMS. over 2 hour runtime with AfA data 
 
 	*** Clean ARV claims

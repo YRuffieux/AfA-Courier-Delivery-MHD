@@ -8,9 +8,10 @@ merge m:1 patient using "$source/tblBAS", keep(match) keepusing(enrol_d birth_d)
 merge m:1 patient using "$source/tblLTFU", keep(match) keepusing(drop_d death_d) nogen
 
 sort patient coverfrom_date coverto_date
+bysort patient: egen coverfrom_date_min=min(coverfrom_date)
 bysort patient: egen coverto_date_max=max(coverto_date)
-format coverto_date_max %tdD_m_CY
-gen start=max(enrol_d,$open_d)
+format coverfrom_date_min coverto_date_max %tdD_m_CY
+gen start=max(enrol_d,coverfrom_date_min,$open_d)
 gen end=min(drop_d,death_d,coverto_date_max,$close_d)
 format start end %tdD_m_CY
 gunique patient         // 236,918

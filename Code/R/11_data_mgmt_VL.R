@@ -19,9 +19,10 @@ tic("Overall")
 
 tic("Loading data")
 load(file=file.path(filepath_processed,"AfA_base.RData"))
+load(file=file.path(filepath_read,"tblCOVERPERIODS.RData"))     # for medical scheme info - coverperiods already incorporated AfA_Base.RData
 load(file=file.path(filepath_read,"tblLAB_RNA.RData"))
-load(file=file.path(filepath_read,"tblREGIMEN.RData"))
-load(file=file.path(filepath_read,"tblARV.RData"))
+load(file=file.path(filepath_read,"tblREGIMEN.RData"))          # ART info
+load(file=file.path(filepath_read,"tblARV.RData"))              # courier info
 toc()
 
 DTrna <- tblLAB_RNA[,.(patient,rna_d,rna_v)]
@@ -36,7 +37,6 @@ print(paste0("Starting number of patients: ",N))
 
 setorder(DTrna,"patient","rna_d")
 
-#DTrna <- DTrna[rna_d>start & rna_d<=end]
 DTrna <- DTrna[rna_d>=start & rna_d<end]
 
 DTbas_untested <- DTbas[!DTrna,on="patient"]         # dataset with indiviudals having no VL test during follow-up
@@ -120,7 +120,7 @@ setorder(tblREGIMEN,"patient","moddate")
 
 DTreg <- copy(tblREGIMEN)
 DTreg[,moddate:=moddate+courier_lag*365.25/12]
-DTreg <- DTreg[moddate<=close_date]
+DTreg <- DTreg[moddate<close_date]
 DTreg[art_type=="Other",art:=0]
 
 # filling ART interruptions with previous ART regimen (see for ex. AFA0800214, AFA1130893)
@@ -137,7 +137,10 @@ DTreg[,art_line:=cumsum(switch_ind)+1,by="patient"]
 # merging with VL table
 setnames(DTreg,"moddate","art_sd")
 DTreg[,art_ed:=data.table::shift(art_sd,fill=close_date,type="lead"),by="patient"]
-DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d,start,end)],on=.(patient,art_sd<rna_d,art_ed>=rna_d)]
+DTrna <- DTreg[DTrna[,.(patient,rna_d,rna_v,sex,birth_d,mhd_d,start,end)],on=.(patient,art_sd<=rna_d,art_ed>rna_d)]
+rm(DTreg)
+gc(verbose=FALSE)
+
 setnames(DTrna,"art_sd","rna_d")
 DTrna[,art_ed:=NULL]
 DTrna[is.na(art),`:=`(art=0,drug="",art_type="None")]
@@ -171,8 +174,10 @@ DTarv[,N_switches:=sum(abs(delta)),by="patient"]
 DTarv[,med_ed:=data.table::shift(med_sd,fill=close_date,type="lead"),by="patient"]
 
 # merging with VL table
-DTrna <- DTarv[DTrna,on=.(patient,med_sd<rna_d,med_ed>=rna_d)]
+DTrna <- DTarv[DTrna,on=.(patient,med_sd<=rna_d,med_ed>rna_d)]
 stopifnot(DTrna[,all(!is.na(courier))])
+rm(DTarv)
+gc(verbose=FALSE)
 
 DTrna <- DTrna[,.(patient,sex,birth_d,rna_d=med_sd,mhd_d,rna_v,drug,art_type_cf,courier,courier_cat,
                   N_switches_arv=N_switches,art_first_line=as.numeric(art_line==1),start,end)]
@@ -183,6 +188,15 @@ DTrna[,delta:=NULL]
 
 tab_arv <- unique(DTrna,by="patient")[,prop.table(table(N_switches_arv))]
 tab_vl <- unique(DTrna,by="patient")[,prop.table(table(N_switches_vl))]
+
+##### identifying medical scheme at each VL test #####
+
+# good example, AFA0801083 has RNA measurements during an interruption in the cover periods (in which case carry forward the previous scheme)
+
+setorder(tblCOVERPERIODS,"patient","coverfrom_date")
+DTrna <- tblCOVERPERIODS[,.(patient,coverfrom_date,scheme_code)][DTrna,on=.(patient,coverfrom_date<=rna_d),mult="last"]
+setnames(DTrna,"coverfrom_date","rna_d")
+stopifnot(all(DTrna[,!is.na(scheme_code)]))
 
 ##### appending MHD indicators #####
 

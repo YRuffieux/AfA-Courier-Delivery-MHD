@@ -26,7 +26,7 @@ pp_stack_scheme <- ggplot(data=X,aes(x=start_year,fill=scheme_code_base)) +
   theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
         axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom") +
   labs(x = "Year of entry",y="Count",fill=NULL)
-ggsave(pp_stack_scheme,filename=file.path(filepath_plot,"starting_probabilities_by_calyear_and_scheme.png"),height=4,width=6,dpi=600)
+ggsave(pp_stack_scheme,filename=file.path(filepath_plot,"nb_entries_by_year_and_scheme.png"),height=4,width=6,dpi=600)
 
 if(which_scheme=="PLM")
   DTms <- DTms[scheme_code_base=="PLM"]
@@ -58,10 +58,10 @@ pp_stack_courier <- ggplot(data=Y,aes(x=start_year,y=pct,fill=outcome)) +
   labs(x = "Year of entry",y="Percentage",fill=NULL)
 if(which_scheme=="All")
 {
-  ggsave(pp_stack_courier,filename=file.path(filepath_plot,"starting_probabilities_by_calyear_and_courier.png"),height=4,width=6,dpi=600)
+  ggsave(pp_stack_courier,filename=file.path(filepath_plot,"starting_probabilities_by_year_and_courier.png"),height=4,width=6,dpi=600)
 } else
 {
-  ggsave(pp_stack_courier,filename=file.path(filepath_plot,paste0("starting_probabilities_by_calyear_and_courier_",which_scheme,".png")),height=4,width=6,dpi=600)
+  ggsave(pp_stack_courier,filename=file.path(filepath_plot,paste0("starting_probabilities_by_year_and_courier_",which_scheme,".png")),height=4,width=6,dpi=600)
 }
 rm(Y)
   

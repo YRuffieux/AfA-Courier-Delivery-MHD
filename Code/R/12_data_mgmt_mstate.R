@@ -35,6 +35,7 @@ DTrna <- unique(DTrna)
 setorder(tblCOVERPERIODS,"patient","coverfrom_date")
 DTrna <- tblCOVERPERIODS[,.(patient,coverfrom_date,scheme_code_base=scheme_code)][DTrna,on=.(patient,coverfrom_date<=start),mult="last"]
 DTrna <- DTrna[,.(patient,start=coverfrom_date,end,scheme_code_base)]
+stopifnot(DTrna[,all(!is.na(scheme_code_base))])
 
 # courier status information from ART table
 DTms <- tblARV[,.(patient,med_sd,courier)]
