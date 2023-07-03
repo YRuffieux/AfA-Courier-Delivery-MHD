@@ -127,6 +127,7 @@ DTreg[art_type=="Other",art:=0]
 DTreg[,art_type_cf:=art_type]
 DTreg[art==0,art_type_cf:=NA]
 DTreg[,art_type_cf:=na.locf(art_type_cf,na.rm=FALSE),by="patient"]
+DTreg[,art_type_cf:=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+2NRTI","PI+2NRTI"))]
 
 # identifying 1st, 2nd, 3rd line ART
 DTreg <- DTreg[!is.na(art_type_cf)]
@@ -180,14 +181,14 @@ rm(DTarv)
 gc(verbose=FALSE)
 
 DTrna <- DTrna[,.(patient,sex,birth_d,rna_d=med_sd,mhd_d,rna_v,drug,art_type_cf,courier,courier_cat,
-                  N_switches_arv=N_switches,art_first_line=as.numeric(art_line==1),start,end)]
+                  N_courier_switches_arv=N_switches,art_first_line=as.numeric(art_line==1),start,end)]
 DTrna[,delta:=courier-data.table::shift(courier,type="lag"),by="patient"]
 DTrna[is.na(delta),delta:=0]
-DTrna[,N_switches_vl:=sum(abs(delta)),by="patient"]
+DTrna[,N_courier_switches_vl:=sum(abs(delta)),by="patient"]
 DTrna[,delta:=NULL]
 
-tab_arv <- unique(DTrna,by="patient")[,prop.table(table(N_switches_arv))]
-tab_vl <- unique(DTrna,by="patient")[,prop.table(table(N_switches_vl))]
+tab_arv <- unique(DTrna,by="patient")[,prop.table(table(N_courier_switches_arv))]
+tab_vl <- unique(DTrna,by="patient")[,prop.table(table(N_courier_switches_vl))]
 
 ##### identifying medical scheme at each VL test #####
 

@@ -20,7 +20,7 @@ setorder(DTrna,"patient","rna_d")
 
 DTrna <- DTrna[,.(patient,rna_d,start,end)]
 
-# fetching start/end dates from RNA table: censoring 6 months after the last VL measurement, left-truncating at first VL measurement
+# fetching start/end dates from RNA table:  left-truncating at first VL measurement, censoring 6 months after the last VL measurement
 DTrna <- DTrna[,.(patient,first_rna_d=rna_d)][DTrna,on="patient",mult="first"]
 DTrna <- DTrna[,.(patient,last_rna_d=rna_d)][DTrna,on="patient",mult="last"]
 DTrna[,`:=`(start=pmax(start,first_rna_d),end=pmin(end,last_rna_d+365.25/2))]
@@ -58,7 +58,7 @@ DTms[,n_switch:=cumsum(delta),by="patient"]
 DTms <- unique(DTms,by=c("patient","n_switch"))
 DTms[,`:=`(delta=NULL,n_switch=NULL)]
 DTms[,med_ed:=data.table::shift(med_sd,type="lead"),by="patient"]
-DTms[is.na(med_ed),med_ed:=close_date]
+DTms[is.na(med_ed),med_ed:=close_date]   # properly right-censored further down
 rm(close_date)
 
 # left-truncation and right-censoring based on follow-up time
@@ -72,7 +72,7 @@ DTms[courier==1,`:=`(from="Courier",to="Retail")]
 DTms[courier==0,`:=`(from="Retail",to="Courier")]
 DTms[,status:=1]
 DTms[,`:=`(n=1:.N,N=.N),by="patient"]
-DTms[n==N,status:=0]
+DTms[n==N,status:=0]          # we are ignoring transitions that occur on day of censoring
 DTms[,`:=`(n=NULL,N=NULL,courier=NULL)]
 
 # appending 'dummy' starting states (necessary for transition probabilities)
