@@ -14,9 +14,10 @@ filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Out
 
 rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type_cf")
 correlation_structure <- "exchangeable"
-courier_lag <- 0                 # in months: 0, 6, or 12
+courier_lag <- 0              # in months: 0, 6, or 12
 VLS_threshold <- 400
-include_untested <- FALSE         # whether to include untested follow-up - will be set to unsuppressed VL every six months
+include_untested <- FALSE     # whether to include untested follow-up - will be set to unsuppressed VL every six months
+which_scheme <- "All"         # current options: All, PLM (analysis left-truncated at start of 2016), notPLM
 
 tic("Overall")
 
@@ -32,6 +33,11 @@ if(courier_lag==0)
 {
   load(file=file.path(filepath_read,paste0("AfA_VL_lag",courier_lag,".RData")))
 }
+
+if(which_scheme=="PLM")
+  DTrna <- DTrna[scheme_code=="PLM" & year(rna_d)>=2016]
+if(which_scheme=="notPLM")
+  DTrna <- DTrna[scheme_code!="PLM"]
 
 if(include_untested)
 {
@@ -53,6 +59,10 @@ DTrna[art_type_cf%in%c("II+2NRTI","PI+2NRTI"),art_type_cf_2:="II/PI+2NRTI"]
 DTrna[,art_type_cf_2:=factor(art_type_cf_2,levels=c("NNRTI+2NRTI","II/PI+2NRTI"))]    # need to group II and PI for pre-2018 period
 
 stopifnot(DTrna[,all(!is.na(art_type_cf))])
+
+# different calyear categorization when restricting to PLM
+if(which_scheme=="PLM")
+  DTrna[,calyear_current_cat:=cut(year(rna_d),breaks=c(2016,2018,2020,Inf),right=FALSE)]
 
 df_out <- data.frame(NULL)
 
@@ -85,6 +95,8 @@ if(courier_lag!=0)
   savename <- paste0(savename,"_lag",courier_lag)
 if(include_untested)
   savename <- paste0(savename,"_with_untested")
+if(which_scheme!="All")
+  savename <- paste0(savename,"_",which_scheme)
 
 
 write_xlsx(df_out,path=file.path(filepath_write,paste0(savename,"_vls",VLS_threshold,"_overall.xlsx")))

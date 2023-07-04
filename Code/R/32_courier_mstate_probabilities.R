@@ -8,7 +8,7 @@ filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/
 filepath_plot <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Plots"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
-which_scheme <- "All"          # one of: All, PLM, notPLM, BON, notBON, Other
+which_scheme <- "All"          # the scheme AT BASELINE, one of: All, BON, PLM (then restricted to first six years of follow-up), notPLM
 
 tic()
 
@@ -25,17 +25,13 @@ pp_stack_scheme <- ggplot(data=X,aes(x=start_year,fill=scheme_code_base)) +
   theme_bw() +
   theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
         axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom") +
-  labs(x = "Year of entry",y="Count",fill=NULL)
+  labs(x = "Year of entry",y="Count",fill="Medical scheme")
 ggsave(pp_stack_scheme,filename=file.path(filepath_plot,"nb_entries_by_year_and_scheme.png"),height=4,width=6,dpi=600)
 
 if(which_scheme=="PLM")
   DTms <- DTms[scheme_code_base=="PLM"]
 if(which_scheme=="BON")
   DTms <- DTms[scheme_code_base=="BON"]
-if(which_scheme=="Other")
-  DTms <- DTms[!scheme_code_base%in%c("BON","PLM")]
-if(which_scheme=="notBON")
-  DTms <- DTms[scheme_code_base!="BON"]
 if(which_scheme=="notPLM")
   DTms <- DTms[scheme_code_base!="PLM"]
   
@@ -90,6 +86,12 @@ setorder(DTms,"patient","start")
 DTms <- DTms[,.(patient,start_min=start+1)][DTms,on="patient",mult="first"]
 DTms[,`:=`(start=as.numeric(start-start_min),end=as.numeric(end-start_min))]
 DTms[,start_min:=NULL]
+if(which_scheme=="PLM")  # if PLM only: right-censoring at six year mark
+{
+  DTms <- data.table(survSplit(Surv(start,end,status)~.,cut=6*365.25,episode="cens",data=DTms))
+  DTms <- DTms[cens==1]
+  DTms[,cens:=NULL]
+}
 
 # making mstate object
 attr(DTms,"trans") <- tmat
@@ -108,20 +110,34 @@ pt_melt_point <- melt(pt,id.vars="time",measure.vars=c("Retail","Courier"),varia
 pt_melt_point[,Method:=factor(Method,levels=c("Retail","Courier"))]
 pt_melt_point <- pt_melt_point[time>=0 & time<=10]
 
-pp_tp <- ggplot(pt_melt_point, aes(x=time,y=Probability,group=Method,fill=Method)) +
-  geom_area(position="fill") +
-  theme_bw() +
-  theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
-        axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom") +
-  scale_x_continuous(limits=c(0,10),breaks=seq(0,10,by=2), expand = c(0, 0.1)) +
-  scale_y_continuous(labels=scales::percent, limits=c(-0.005,1.005),expand=c(0.01, 0)) +
-  labs(x = "Year of follow-up",y="Percentage",fill=NULL)
-if(which_scheme=="All")
+if(which_scheme!="PLM")
 {
-  ggsave(pp_tp,filename=file.path(filepath_plot,"mstate_probabilities.png"),height=4,width=6,dpi=600)
+  pp_tp <- ggplot(pt_melt_point, aes(x=time,y=Probability,group=Method,fill=Method)) +
+    geom_area(position="fill") +
+    theme_bw() +
+    theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+          axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom") +
+    scale_x_continuous(limits=c(0,10),breaks=seq(0,10,by=2), expand = c(0, 0.1)) +
+    scale_y_continuous(labels=scales::percent, limits=c(-0.005,1.005),expand=c(0.01, 0)) +
+    labs(x = "Year of follow-up",y="Percentage",fill=NULL)
+  if(which_scheme=="All")
+  {
+    ggsave(pp_tp,filename=file.path(filepath_plot,"mstate_probabilities.png"),height=4,width=6,dpi=600)
+  } else
+  {
+    ggsave(pp_tp,filename=file.path(filepath_plot,paste0("mstate_probabilities_",which_scheme,".png")),height=4,width=6,dpi=600)
+  }
 } else
 {
-  ggsave(pp_tp,filename=file.path(filepath_plot,paste0("mstate_probabilities_",which_scheme,".png")),height=4,width=6,dpi=600)
+  pp_tp <- ggplot(pt_melt_point, aes(x=time,y=Probability,group=Method,fill=Method)) +
+    geom_area(position="fill") +
+    theme_bw() +
+    theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+          axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom") +
+    scale_x_continuous(limits=c(0,6),breaks=seq(0,6,by=1), expand = c(0, 0.1)) +
+    scale_y_continuous(labels=scales::percent, limits=c(-0.005,1.005),expand=c(0.01, 0)) +
+    labs(x = "Year of follow-up",y="Percentage",fill=NULL)
+  ggsave(pp_tp,filename=file.path(filepath_plot,paste0("mstate_probabilities_PLM.png")),height=4,width=6,dpi=600)
 }
 
 # numerical values + 95% CIs
@@ -129,7 +145,13 @@ format_CI <- function(a,b,c,digits=2)
   paste0(trimws(format(round(a,2),nsmall=2))," (",trimws(format(round(b,2),nsmall=2)),"-",trimws(format(round(c,2),nsmall=2)),")")
 
 pt <- pt[pstate1!=1]
+if(which_scheme!="PLM")
+{
 xxx <- pt[,abs(outer(time,(0:20)/2,"-"))]
+} else
+{
+  xxx <- pt[,abs(outer(time,(0:12)/2,"-"))] 
+}
 yyy <- apply(xxx,2,FUN=which.min)
 
 df_out <- pt[yyy]
@@ -150,20 +172,34 @@ msf_ch <- rbind(data.table(msf$Haz[msf$Haz$trans==3,]),
                 data.table(msf$Haz[msf$Haz$trans==4,]))
 msf_ch[,`:=`(trans=factor(trans),time=time/365.25)]
 msf_ch <- msf_ch[time>=0 & time<=10]
-pp_haz <- ggplot(msf_ch,aes(x=time,y=Haz,color=trans)) +
-  geom_line() +
-  theme_bw() +
-  theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
-        axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom")+
-  labs(x="Year of follow-up",y="Cumulative hazard") +
-  scale_x_continuous(limits=c(0,10),breaks=seq(0,10,by=2), expand = c(0, 0.1)) +
-  scale_color_discrete(name = "Transition", labels = c("Retail->Courier","Courier->Retail"))
-if(which_scheme=="All")
+if(which_scheme!="PLM")
 {
-  ggsave(pp_haz,filename=file.path(filepath_plot,"mstate_hazards.png"),height=4,width=6,dpi=600)
+  pp_haz <- ggplot(msf_ch,aes(x=time,y=Haz,color=trans)) +
+    geom_line() +
+    theme_bw() +
+    theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+          axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom")+
+    labs(x="Year of follow-up",y="Cumulative hazard") +
+    scale_x_continuous(limits=c(0,10),breaks=seq(0,10,by=2), expand = c(0, 0.1)) +
+    scale_color_discrete(name = "Transition", labels = c("Retail->Courier","Courier->Retail"))
+  if(which_scheme=="All")
+  {
+    ggsave(pp_haz,filename=file.path(filepath_plot,"mstate_hazards.png"),height=4,width=6,dpi=600)
+  } else
+  {
+    ggsave(pp_haz,filename=file.path(filepath_plot,paste0("mstate_hazards_",which_scheme,".png")),height=4,width=6,dpi=600)
+  }
 } else
 {
-  ggsave(pp_haz,filename=file.path(filepath_plot,paste0("mstate_hazards_",which_scheme,".png")),height=4,width=6,dpi=600)
+  pp_haz <- ggplot(msf_ch,aes(x=time,y=Haz,color=trans)) +
+    geom_line() +
+    theme_bw() +
+    theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+          axis.title=element_text(size=10), axis.text=element_text(size=10), legend.position="bottom")+
+    labs(x="Year of follow-up",y="Cumulative hazard") +
+    scale_x_continuous(limits=c(0,6),breaks=seq(0,10,by=1), expand = c(0, 0.1)) +
+    scale_color_discrete(name = "Transition", labels = c("Retail->Courier","Courier->Retail"))
+  ggsave(pp_haz,filename=file.path(filepath_plot,"mstate_hazards_PLM.png"),height=4,width=6,dpi=600)
 }
 
 toc()

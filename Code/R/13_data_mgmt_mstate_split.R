@@ -1,4 +1,4 @@
-# setting up data for mstate time-to-event analysis
+# setting up data for time-to-event analysis in mstate, with time-updated variables
 
 library(data.table)
 library(tictoc)
@@ -18,13 +18,12 @@ load(file=file.path(filepath_processed,"AfA_VL.RData"))
 load(file=file.path(filepath_processed,"AfA_base.RData"))
 load(file=file.path(filepath_read,"tblREGIMEN.RData"))
 source("C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Repository/Code/R/utils/timeSplit_DT.R")
-
 toc()
 
 age_breaks <- c(15,30,40,50,60,70)
 calyear_breaks <- c(2011,2014,2017,2020)
 
-DTms <- DTms[from!="Entry",.(patient,start,end,from,to,status)]         # no need for entry state in this analysis
+DTms <- DTms[from!="Entry",.(patient,start,end,from,to,status,scheme_code_base)]         # no need for entry state in this analysis
 
 DTrna <- DTrna[!is.na(rna_v),.(patient,rna_d,rna_v,art_type_cf)]        # removing 'fake' tests
 setorder(DTrna,"patient","rna_d")
@@ -44,7 +43,7 @@ N_py_courier <- DTms[from=="Courier",sum(as.numeric(end-start))]
 N_py_retail <- DTms[from=="Retail",sum(as.numeric(end-start))]
 
 # reminder: follow-up is already left-truncated at first VL measurement and right-censored six months after last VL measurement in 'AfA_mstate.RData'
-DTms_split <- DTms[,.(patient,start,end,from,to,status)]
+DTms_split <- DTms[,.(patient,start,end,from,to,status,scheme_code_base)]
 DTms_split <- DTms_split[,.(patient,enter_d=start)][DTms_split,on="patient",mult="first"]   # date patient enters the study, need this for later
 DTms_split <- DTms_split[,.(patient,leave_d=end)][DTms_split,on="patient",mult="last"]      # date patient leaves the study, need this for later
 rm(DTms)
@@ -136,24 +135,6 @@ DTms_split <- DTms_split[,.(patient,enter_d=start)][DTms_split,on="patient",mult
 DTms_split[,`:=`(start=start-as.numeric(enter_d),end=end-as.numeric(enter_d))]
 DTms_split[,enter_d:=NULL]
 
-##### differentiating risk factors by transition #####
-
-tic("Expanding risk factors by transition")
-
-DTms_split[,art_type:=factor(as.numeric(art_type))]
-
-DTms_split[,trans:=1]
-DTms_split[from=="Courier",trans:=2]
-tmat <- matrix(c(NA,1,2,NA),nrow=2,byrow=TRUE)
-dimnames(tmat) <- list(from=c("Retail","Courier"),to=c("Retail","Courier"))
-attr(DTms_split,"trans") <- tmat
-class(DTms_split) <- c("msdata","data.frame")
-
-DTms_split <- data.table(expand.covs(DTms_split,covs=c("vls_ind","art_type","sex","mhd_ind","age_cat","calyear_cat")))
-
-
-toc()
-
 ##### checking that we didn't lose anything, that everyone starts at time 0, and saving dataset #######
 
 stopifnot(N_indiv==uniqueN(DTms_split,"patient"))
@@ -166,6 +147,6 @@ stopifnot(N_py_retail==DTms_split[from=="Retail",sum(as.numeric(end-start))])
 stopifnot(DTms_split[,all(from!=to)])
 stopifnot(all(unique(DTms_split,by="patient")[,start]==0))
 
-save(DTms_split,file=file.path(filepath_processed,"AfA_mstate_split.R"))
+save(DTms_split,file=file.path(filepath_processed,"AfA_mstate_split.RData"))
 
 toc()
