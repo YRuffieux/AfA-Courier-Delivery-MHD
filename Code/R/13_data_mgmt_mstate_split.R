@@ -41,6 +41,8 @@ N_retail_to_courier <- DTms[status==1 & from=="Retail" & to=="Courier",.N]
 N_py <- DTms[,sum(as.numeric(end-start))]
 N_py_courier <- DTms[from=="Courier",sum(as.numeric(end-start))]
 N_py_retail <- DTms[from=="Retail",sum(as.numeric(end-start))]
+N_status_BON <- DTms[scheme_code_base=="BON",sum(status)]
+N_py_BON <- DTms[scheme_code_base=="BON",sum(as.numeric(end-start))]
 
 # reminder: follow-up is already left-truncated at first VL measurement and right-censored six months after last VL measurement in 'AfA_mstate.RData'
 DTms_split <- DTms[,.(patient,start,end,from,to,status,scheme_code_base)]
@@ -89,23 +91,34 @@ X <- unique(DTreg,by=c("patient","n_switch"))
 # merging mstate and ART datasets
 DTms_split <- merge(DTms_split,X[,.(patient,start=moddate,art_type)],by=c("patient","start"),all=TRUE)
 setorder(DTms_split,"patient","start")
+rm(X)
 
 toc()
 
 # filling in empty gaps
 tic("Cleanup")
-DTms_split[,`:=`(art_type=na.locf(art_type,na.rm=FALSE),
-                 vls_ind=na.locf(vls_ind,na.rm=FALSE),
-                 from=na.locf(from,na.rm=FALSE),
-                 to=na.locf(to,na.rm=FALSE),
-                 leave_d=na.locf(leave_d,na.rm=FALSE),
-                 status=na.locf(status,na.rm=FALSE),
-                 end=data.table::shift(start,type="lead")),
-           by="patient"]
+
+cols <- c("art_type","vls_ind","from","to","leave_d","status","scheme_code_base")
+DTms_split[,(cols):=lapply(.SD,na.locf,na.rm=FALSE),.SDcols=cols,by="patient"]
+rm(cols)
+DTms_split[,end:=data.table::shift(start,type="lead"),by="patient"]
 DTms_split[to==data.table::shift(to,type="lead"),status:=0]
 DTms_split[is.na(end),end:=leave_d]
 DTms_split[,`:=`(enter_d=NULL,leave_d=NULL)]
-rm(X)
+
+# DTms_split[,`:=`(art_type=na.locf(art_type,na.rm=FALSE),
+#                  vls_ind=na.locf(vls_ind,na.rm=FALSE),
+#                  from=na.locf(from,na.rm=FALSE),
+#                  to=na.locf(to,na.rm=FALSE),
+#                  leave_d=na.locf(leave_d,na.rm=FALSE),
+#                  status=na.locf(status,na.rm=FALSE),
+#                  scheme_code_base=na.locf(status,na.rm=FALSE),
+#                  end=data.table::shift(start,type="lead")),
+#            by="patient"]
+# DTms_split[to==data.table::shift(to,type="lead"),status:=0]
+# DTms_split[is.na(end),end:=leave_d]
+# DTms_split[,`:=`(enter_d=NULL,leave_d=NULL)]
+
 toc()
 
 #### Appending baseline data + other time-updated variables #####
@@ -144,6 +157,8 @@ stopifnot(N_retail_to_courier==DTms_split[status==1 & from=="Retail" & to=="Cour
 stopifnot(N_py==DTms_split[,sum(as.numeric(end-start))])
 stopifnot(N_py_courier==DTms_split[from=="Courier",sum(as.numeric(end-start))])
 stopifnot(N_py_retail==DTms_split[from=="Retail",sum(as.numeric(end-start))])
+stopifnot(N_status_BON==DTms_split[scheme_code_base=="BON",sum(status)])
+stopifnot(N_py_BON==DTms_split[scheme_code_base=="BON",sum(as.numeric(end-start))])
 stopifnot(DTms_split[,all(from!=to)])
 stopifnot(all(unique(DTms_split,by="patient")[,start]==0))
 

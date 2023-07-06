@@ -8,18 +8,18 @@ filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/
 filepath_plot <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Plots"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
-which_scheme <- "All"          # the scheme AT BASELINE, one of: All, BON, PLM (then restricted to first six years of follow-up), notPLM
+which_scheme <- "All"          # the scheme AT BASELINE, one of: All, BON, PLM (then restricted to first six years of follow-up), Other
 
 tic()
 
 load(file=file.path(filepath_processed,"AfA_mstate.RData"))
 
+DTms[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
+DTms[,scheme_code_base:=factor(scheme_code_base,levels=c("BON","PLM","Other"))]
+
 # plotting % in each scheme (PLM, BON, Other) by entry year
 X <- unique(DTms[from!="Entry"],by="patient")
-X[,start_year:=year(start)]
-X[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
-X[,`:=`(scheme_code_base=factor(scheme_code_base,levels=c("BON","PLM","Other")),
-        start_year=factor(start_year))]
+X[,start_year:=factor(year(start))]
 pp_stack_scheme <- ggplot(data=X,aes(x=start_year,fill=scheme_code_base)) +
   geom_bar(position="stack",stat="count") +
   theme_bw() +
@@ -28,13 +28,9 @@ pp_stack_scheme <- ggplot(data=X,aes(x=start_year,fill=scheme_code_base)) +
   labs(x = "Year of entry",y="Count",fill="Medical scheme")
 ggsave(pp_stack_scheme,filename=file.path(filepath_plot,"nb_entries_by_year_and_scheme.png"),height=4,width=6,dpi=600)
 
-if(which_scheme=="PLM")
-  DTms <- DTms[scheme_code_base=="PLM"]
-if(which_scheme=="BON")
-  DTms <- DTms[scheme_code_base=="BON"]
-if(which_scheme=="notPLM")
-  DTms <- DTms[scheme_code_base!="PLM"]
-  
+if(which_scheme!="All")
+  DTms <- DTms[scheme_code_base==which_scheme]
+
 # plotting % on courier at cohort entry by calendar year
 X <- DTms[status==1 & from=="Entry"]
 X[,start_year:=year(end)]
