@@ -106,19 +106,6 @@ DTms_split[to==data.table::shift(to,type="lead"),status:=0]
 DTms_split[is.na(end),end:=leave_d]
 DTms_split[,`:=`(enter_d=NULL,leave_d=NULL)]
 
-# DTms_split[,`:=`(art_type=na.locf(art_type,na.rm=FALSE),
-#                  vls_ind=na.locf(vls_ind,na.rm=FALSE),
-#                  from=na.locf(from,na.rm=FALSE),
-#                  to=na.locf(to,na.rm=FALSE),
-#                  leave_d=na.locf(leave_d,na.rm=FALSE),
-#                  status=na.locf(status,na.rm=FALSE),
-#                  scheme_code_base=na.locf(status,na.rm=FALSE),
-#                  end=data.table::shift(start,type="lead")),
-#            by="patient"]
-# DTms_split[to==data.table::shift(to,type="lead"),status:=0]
-# DTms_split[is.na(end),end:=leave_d]
-# DTms_split[,`:=`(enter_d=NULL,leave_d=NULL)]
-
 toc()
 
 #### Appending baseline data + other time-updated variables #####

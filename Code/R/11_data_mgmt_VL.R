@@ -19,7 +19,7 @@ tic("Overall")
 
 tic("Loading data")
 load(file=file.path(filepath_processed,"AfA_base.RData"))
-load(file=file.path(filepath_read,"tblCOVERPERIODS.RData"))     # for medical scheme info - coverperiods already incorporated AfA_Base.RData
+load(file=file.path(filepath_read,"tblCOVERPERIODS.RData"))     # for medical scheme info - coverperiods already incorporated in AfA_Base.RData
 load(file=file.path(filepath_read,"tblLAB_RNA.RData"))
 load(file=file.path(filepath_read,"tblREGIMEN.RData"))          # ART info
 load(file=file.path(filepath_read,"tblARV.RData"))              # courier info
@@ -190,7 +190,7 @@ DTrna[,delta:=NULL]
 tab_arv <- unique(DTrna,by="patient")[,prop.table(table(N_courier_switches_arv))]
 tab_vl <- unique(DTrna,by="patient")[,prop.table(table(N_courier_switches_vl))]
 
-##### identifying medical scheme at each VL test #####
+##### identifying medical scheme at each VL test, and at first VL test #####
 
 # good example, AFA0801083 has RNA measurements during an interruption in the cover periods (in which case carry forward the previous scheme)
 
@@ -198,6 +198,7 @@ setorder(tblCOVERPERIODS,"patient","coverfrom_date")
 DTrna <- tblCOVERPERIODS[,.(patient,coverfrom_date,scheme_code)][DTrna,on=.(patient,coverfrom_date<=rna_d),mult="last"]
 setnames(DTrna,"coverfrom_date","rna_d")
 stopifnot(all(DTrna[,!is.na(scheme_code)]))
+DTrna <- DTrna[!is.na(rna_v),.(patient,scheme_code_base=scheme_code)][DTrna,on="patient",mult="first"]
 
 ##### appending MHD indicators #####
 

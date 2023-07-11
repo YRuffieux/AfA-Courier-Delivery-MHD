@@ -29,13 +29,16 @@ DTrna[,`:=`(age_current_cat=cut(age_current,breaks=c(15,30,40,50,60,70,Inf),righ
             VLS_400=factor(ifelse(rna_v<400,"Suppressed","Unsuppressed"),levels=c("Suppressed","Unsuppressed")),
             VLS_1000=factor(ifelse(rna_v<1000,"Suppressed","Unsuppressed"),levels=c("Suppressed","Unsuppressed")),
             courier=as.character(courier),
-            mhd_ind=as.character(mhd_ind))]
+            mhd_ind=as.character(mhd_ind),
+            scheme_code_base=NULL)]
 DTrna[courier==0,courier:="No"]
 DTrna[courier==1,courier:="Yes"]
 DTrna[,courier:=factor(courier,levels=c("No","Yes"))]
 DTrna[mhd_ind==0,mhd_ind:="No"]
 DTrna[mhd_ind==1,mhd_ind:="Yes"]
 DTrna[,mhd_ind:=factor(mhd_ind,levels=c("No","Yes"))]
+DTrna[!scheme_code%in%c("BON","PLM"),scheme_code:="Other"]
+DTrna[,scheme_code:=factor(scheme_code,levels=c("BON","PLM","Other"))]
 
 # number of tests per patient
 DTrna[,`:=`(N_tests=.N,N_tests_courier=sum(courier=="Yes"),N_tests_noncourier=sum(courier=="No")),by="patient"]
@@ -53,16 +56,28 @@ df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current
                                      strata="courier",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
-
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_courier_status.xlsx"))
+write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_courier_status.xlsx"))
 
 # stratified by calendar period and courier status (no/yes)
 df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400"),
                          strata=c("courier","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
+write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_courier_status.xlsx"))
 
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_by_period_and_courier_status.xlsx"))
+# stratified by medical scheme
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400","courier"),
+                         strata=c("scheme_code"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
+df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+df_out <- data.table(cbind(row.names(df_out),df_out))
+write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_scheme.xlsx"))
+
+# stratified by calendar period and medical scheme
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400","courier"),
+                         strata=c("scheme_code","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
+df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+df_out <- data.table(cbind(row.names(df_out),df_out))
+write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_scheme.xlsx"))
 
 # Number of VL tests by year and medical scheme (BON/PLM/Other)
 DTrna[,`:=`(scheme_code_cat=scheme_code,calyear=factor(year(rna_d)))]

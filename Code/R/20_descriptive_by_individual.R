@@ -1,4 +1,4 @@
-# descriptive table by individual, overall and stratified by ART dispensing method
+# descriptive table by individual, overall and stratified by ART delivery type, and by baseline medical scheme
 
 library(tictoc)
 library(data.table)
@@ -42,13 +42,16 @@ DTu[,`:=`(age_base_cat=cut(age_base,breaks=c(15,30,40,50,60,70,Inf),right=FALSE)
           sex=factor(sex,levels=c("Male","Female")),
           courier_ever=as.character(courier_ever),
           mhd_ever=as.character(mhd_ever),
-          art_type_cf=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+2NRTI","PI+2NRTI")))]
+          art_type_cf=factor(art_type_cf,levels=c("NNRTI+2NRTI","II+2NRTI","PI+2NRTI")),
+          scheme_code=NULL)]
 DTu[courier_ever==0,courier_ever:="No"]
 DTu[courier_ever==1,courier_ever:="Yes"]
 DTu[,courier_ever:=factor(courier_ever,levels=c("No","Yes"))]
 DTu[mhd_ever==0,mhd_ever:="No"]
 DTu[mhd_ever==1,mhd_ever:="Yes"]
 DTu[,mhd_ever:=factor(mhd_ever,levels=c("No","Yes"))]
+DTu[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
+DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("BON","PLM","Other"))]
 
 # no stratification
 overall_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),data=DTu)
@@ -62,6 +65,13 @@ courier_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base"
 courier_df <- print(courier_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 courier_df <- data.table(data.frame(cbind(row.names(courier_df),courier_df)))
 write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_individuals_by_courier_status.xlsx"))
+
+# by medical scheme
+scheme_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf","courier_ever"),strata="scheme_code_base",
+                             test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
+scheme_df <- print(scheme_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
+scheme_df <- data.table(data.frame(cbind(row.names(scheme_df),scheme_df)))
+write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_individuals_by_medical_scheme.xlsx"))
 
 
 toc()

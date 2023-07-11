@@ -18,7 +18,7 @@ load(file=file.path(filepath_read,"tblCOVERPERIODS.RData"))
 DTrna <- DTrna[!is.na(rna_v)]               # removing 'fake' tests
 setorder(DTrna,"patient","rna_d")
 
-DTrna <- DTrna[,.(patient,rna_d,start,end)]
+DTrna <- DTrna[,.(patient,rna_d,start,end,scheme_code_base)]
 
 # fetching start/end dates from RNA table:  left-truncating at first VL measurement, censoring 6 months after the last VL measurement
 DTrna <- DTrna[,.(patient,first_rna_d=rna_d)][DTrna,on="patient",mult="first"]
@@ -30,12 +30,6 @@ DTrna[,`:=`(rna_d=NULL,first_rna_d=NULL,last_rna_d=NULL)]
 close_date <- DTrna[,max(end)]
 
 DTrna <- unique(DTrna)
-
-# insurance scheme at baseline
-setorder(tblCOVERPERIODS,"patient","coverfrom_date")
-DTrna <- tblCOVERPERIODS[,.(patient,coverfrom_date,scheme_code_base=scheme_code)][DTrna,on=.(patient,coverfrom_date<=start),mult="last"]
-DTrna <- DTrna[,.(patient,start=coverfrom_date,end,scheme_code_base)]
-stopifnot(DTrna[,all(!is.na(scheme_code_base))])
 
 # courier status information from ART table
 DTms <- tblARV[,.(patient,med_sd,courier)]
