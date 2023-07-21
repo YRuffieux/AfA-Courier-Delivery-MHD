@@ -3,6 +3,7 @@ library(data.table)
 library(survival)
 library(mstate)
 library(writexl)
+library(stringr)
 
 filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
@@ -89,7 +90,7 @@ toc()
 # setting up Excel table of results
 
 format_CI <- function(a,b,c,digits=2) 
-  paste0(trimws(format(round(a,2),nsmall=2))," (",trimws(format(round(b,2),nsmall=2)),"-",trimws(format(round(c,2),nsmall=2)),")")
+  paste0(trimws(format(round(a,digits),nsmall=digits))," (",trimws(format(round(b,digits),nsmall=digits)),"-",trimws(format(round(c,digits),nsmall=digits)),")")
 
 stopifnot(all(df_unadjusted[,rf]==df_adjusted[,rf]))
 
