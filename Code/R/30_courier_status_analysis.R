@@ -13,7 +13,7 @@ library(stringr)
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
-which_scheme <- "PLM"         # current options: All, BON, PLM (analysis left-truncated at start of 2016), Other
+which_scheme <- "All"         # current options: All, BON, PLM (analysis left-truncated at start of 2016), Other
 
 rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type")
 correlation_structure <- "exchangeable"
