@@ -1,4 +1,4 @@
-# adjusted/unadjusted predicted probabilities from VL suppression logistic model, by calendar period
+# adjusted/unadjusted predicted probabilities of VL suppression by ART delivery method, by calendar period and overall
 # using age on continuous scale, ART regimen and scheme code as a 0/1 continuous variable (NNRTI/non-NNRTI, PLM/non-PLM)
 # 1-2 minutes
 
@@ -67,6 +67,7 @@ if(include_untested)
 # formatting
 DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
             patient=factor(patient),
+            calyear_num=as.numeric(rna_d-as.Date("2011-01-01"))/365.25,
             art_type_num=as.numeric(art_type!="NNRTI+2NRTI"),
             scheme_code_num=as.numeric(scheme_code!="PLM"))]
 DTrna[,art_type:=NULL]
@@ -82,7 +83,9 @@ if(which_scheme=="PLM")
 
 DTrna[,sex:=as.numeric(sex)-1]
 
-# crude probabilities
+df_out <- data.table(col=c("retail_unadj","courier_unadj","","courier_adj","courier_unadj"))
+
+# unadjusted probabilities, by calendar period and overall
 probs_gee_crude_df <- data.table(NULL)
 reg_formula <- as.formula("vls_ind ~ courier")
 for(period in DTrna[,levels(calyear_current_cat)])
@@ -93,9 +96,14 @@ for(period in DTrna[,levels(calyear_current_cat)])
                               data.table(calyear_cat=rep(period,2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
   rm(lreg,gres)
 }
-rm(reg_formula)
 
-# adjusted probabilities
+lreg <- geeglm(reg_formula,DTrna,family="binomial",corstr="exchangeable",id=patient)
+gres <- ggpredict(lreg,"courier")
+probs_gee_crude_df <- rbind(probs_gee_crude_df,
+                            data.table(calyear_cat=rep("Overall",2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
+rm(reg_formula,lreg,gres)
+
+# adjusted probabilities, by calendar period and overall
 probs_gee_adj_df <- data.table(NULL)
 reg_formula <- as.formula(paste0("vls_ind ~",paste0(rf_vect,collapse="+")))
 print(reg_formula)
@@ -107,7 +115,14 @@ for(period in DTrna[,levels(calyear_current_cat)])
                             data.table(calyear_cat=rep(period,2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
   rm(lreg,gres)
 }
+
 rm(reg_formula)
+reg_formula <- as.formula(paste0("vls_ind ~",paste0(rf_vect,collapse="+"),"+ calyear_num"))
+lreg <- geeglm(reg_formula,data=DTrna,family="binomial",corstr="exchangeable",id=patient)
+gres <- ggpredict(lreg,"courier")
+probs_gee_adj_df <- rbind(probs_gee_adj_df,
+                          data.table(calyear_cat=rep("Overall",2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
+rm(reg_formula,lreg,gres)
 
 probs_gee_crude_df[,courier:=factor(courier)]
 probs_gee_adj_df[,courier:=factor(courier)]
@@ -120,28 +135,36 @@ if(which_scheme!="PLM")
   x_labels <- c("2016-2017","2018-2019","2020-2022")
 }
 
-pp_gee_crude <- ggplot(probs_gee_crude_df,aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
+if(which_scheme!="BON")
+{
+  y_lim <- c(70,100)
+} else
+{
+  y_lim <- c(30,100)
+}
+
+pp_gee_crude <- ggplot(probs_gee_crude_df[calyear_cat!="Overall"],aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
   geom_point(size=2,position=position_dodge(0.5)) +
   geom_errorbar(aes(ymax=upper,ymin=lower),width=0.5,position=position_dodge(0.5)) +
   labs(x="Time period",y="Percentage virally suppressed") +
   theme_bw() +
   theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank()) +
-  scale_shape_discrete(labels=c("Non-courier","Courier"),name=NULL) +
-  scale_color_discrete(labels=c("Non-courier","Courier"),name=NULL) +
+  scale_shape_discrete(labels=c("Retail","Courier"),name=NULL) +
+  scale_color_discrete(labels=c("Retail","Courier"),name=NULL) +
   scale_x_discrete(labels=x_labels) +
-  ylim(c(70,100))
+  ylim(y_lim)
 ggsave(pp_gee_crude,filename=file.path(filepath_plot,paste0("crude_",savename,"_by_period.png")),height=4,width=6,dpi=600)
 
-pp_gee_adj <- ggplot(probs_gee_adj_df,aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
+pp_gee_adj <- ggplot(probs_gee_adj_df[calyear_cat!="Overall"],aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
   geom_point(size=2,position=position_dodge(0.5)) +
   geom_errorbar(aes(ymax=upper,ymin=lower),width=0.5,position=position_dodge(0.5)) +
   labs(x="Time period",y="Percentage virally suppressed") +
   theme_bw() +
   theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank()) +
-  scale_shape_discrete(labels=c("Non-courier","Courier"),name=NULL) +
-  scale_color_discrete(labels=c("Non-courier","Courier"),name=NULL) +
+  scale_shape_discrete(labels=c("Retail","Courier"),name=NULL) +
+  scale_color_discrete(labels=c("Retail","Courier"),name=NULL) +
   scale_x_discrete(labels=x_labels) +
-  ylim(c(70,100))
+  ylim(y_lim)
 ggsave(pp_gee_adj,filename=file.path(filepath_plot,paste0("adj_",savename,"_by_period.png")),height=4,width=6,dpi=600)
 
 format_CI <- function(estimate,lower,upper,digits=2)
@@ -149,13 +172,15 @@ format_CI <- function(estimate,lower,upper,digits=2)
          format(round(lower,digits),nsmall=digits),"-",
          format(round(upper,digits),nsmall=digits),")")
 
-probs_gee_adj_out <- probs_gee_adj_df[,.(calyear_cat,courier,out=format_CI(probability,lower,upper,digits=1))]
+probs_gee_adj_out <- probs_gee_adj_df[,.(calyear_cat=factor(calyear_cat,levels=c(DTrna[,levels(calyear_current_cat)],"Overall")),
+                                         courier,out=format_CI(probability,lower,upper,digits=1))]
 probs_gee_adj_out <- dcast(probs_gee_adj_out,courier~calyear_cat,value.var="out")
-probs_gee_crude_out <- probs_gee_crude_df[,.(calyear_cat,courier,out=format_CI(probability,lower,upper,digits=1))]
+probs_gee_crude_out <- probs_gee_crude_df[,.(calyear_cat=factor(calyear_cat,levels=c(DTrna[,levels(calyear_current_cat)],"Overall")),
+                                             courier,out=format_CI(probability,lower,upper,digits=1))]
 probs_gee_crude_out <- dcast(probs_gee_crude_out,courier~calyear_cat,value.var="out")
 
-out_list <- list(crude=probs_gee_crude_out,adjusted=probs_gee_adj_out)
+probs_gee_out <- rbind(probs_gee_crude_out,probs_gee_adj_out)
 
-write_xlsx(out_list,path=file.path(filepath_write,paste0(savename,"_by_period.xlsx")))
+write_xlsx(probs_gee_out,path=file.path(filepath_write,paste0(savename,"_by_period.xlsx")))
 
 toc()

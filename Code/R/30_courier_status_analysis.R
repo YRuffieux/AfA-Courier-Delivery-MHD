@@ -2,7 +2,7 @@
 # using generalized estimating equations to produce odds ratios and 95% CIs: https://www.jstatsoft.org/article/view/v015i02
 # overall, and by calendar period
 # exposure=courier status no/yes
-# ~10 minute runtime
+# ~10 minute runtime with all schemes
 
 library(data.table)
 library(geepack)
@@ -115,6 +115,8 @@ toc()
 df_out <- cbind(df_out,out)
 rm(out,cc,lreg,reg_formula)
 
+df_small_overall <- c(1,df_out[rf=="courier2",uOR],"",1,df_out[rf=="courier2",aOR])
+
 # setting up Excel tables of results
 Z <- rbind(data.table(rf=paste0(rf_vect,"0"),uOR="",aOR=""),
            data.table(rf=paste0(rf_vect,"1"),uOR="1",aOR="1"))
@@ -131,6 +133,7 @@ rm(df_out)
 # by calendar period
 
 df_list <- list()
+df_small <- data.table(NULL)
 
 for(cp in DTrna[,levels(calyear_current_cat)])
 {
@@ -162,6 +165,8 @@ for(cp in DTrna[,levels(calyear_current_cat)])
   
   df_out <- merge(df_out,out,by="rf")
   
+  df_small[,eval(cp):=c(1,df_out[rf=="courier2",uOR],"",1,df_out[rf=="courier2",aOR])]
+  
   # setting up Excel tables of results
   Z <- rbind(data.table(rf=paste0(rf_vect_cp,"0"),uOR="",aOR=""),
              data.table(rf=paste0(rf_vect_cp,"1"),uOR="1",aOR="1"))
@@ -177,7 +182,11 @@ for(cp in DTrna[,levels(calyear_current_cat)])
   toc()
 }
 
+df_small[,Overall:=df_small_overall]
+rm(df_small_overall)
+
 write_xlsx(df_list,path=file.path(filepath_write,paste0(savename,"_by_period.xlsx")))
+write_xlsx(df_small,path=file.path(filepath_write,paste0(savename,"_by_period_small.xlsx")))
 
 gc(verbose=FALSE)
 
