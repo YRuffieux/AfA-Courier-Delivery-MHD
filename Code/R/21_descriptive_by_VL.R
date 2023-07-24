@@ -1,4 +1,4 @@
-# descriptive table by VL measurement, stratified by viral suppression status
+# descriptive table by VL measurement, stratified by various combinations of calendar period, courier status, and medical scheme
 
 library(tictoc)
 library(data.table)
@@ -66,7 +66,7 @@ df_out <- data.table(cbind(row.names(df_out),df_out))
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_courier_status.xlsx"))
 
 # stratified by medical scheme
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400","courier"),
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400","courier"),
                          strata=c("scheme_code"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
@@ -75,6 +75,13 @@ write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_scheme.xlsx"
 # stratified by calendar period and medical scheme
 df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400","courier"),
                          strata=c("scheme_code","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
+df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+df_out <- data.table(cbind(row.names(df_out),df_out))
+write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_scheme.xlsx"))
+
+# stratified by courier status and medical scheme
+df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
+                         strata=c("courier","scheme_code"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
 df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
 df_out <- data.table(cbind(row.names(df_out),df_out))
 write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_scheme.xlsx"))

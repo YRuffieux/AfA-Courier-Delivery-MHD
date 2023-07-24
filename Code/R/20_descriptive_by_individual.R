@@ -60,15 +60,17 @@ overall_df <- data.table(data.frame(cbind(row.names(overall_df),overall_df)))
 write_xlsx(overall_df,path=file.path(filepath_tables,"descriptive_individuals.xlsx"))
 
 # by "ever" courier delivery yes/no
-courier_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),strata="courier_ever",
+courier_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),
+                             strata="courier_ever",
                              test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
 courier_df <- print(courier_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 courier_df <- data.table(data.frame(cbind(row.names(courier_df),courier_df)))
 write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_individuals_by_courier_status.xlsx"))
 
 # by medical scheme
-scheme_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf","courier_ever"),strata="scheme_code_base",
-                             test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
+scheme_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),
+                            strata="scheme_code_base",
+                            test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
 scheme_df <- print(scheme_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 scheme_df <- data.table(data.frame(cbind(row.names(scheme_df),scheme_df)))
 write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_individuals_by_medical_scheme.xlsx"))
