@@ -11,8 +11,7 @@ filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/clean
 filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_write <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 
-courier_lag <- 0
-min_age <- 15
+courier_lag <- 0             # in months
 close_date <- as.Date("2022-07-01")
 
 tic("Overall")
