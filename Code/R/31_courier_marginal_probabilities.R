@@ -1,4 +1,4 @@
-# adjusted/unadjusted predicted probabilities of VL suppression by ART delivery method, by calendar period and overall
+# adjusted/unadjusted retail/courier marginal probabilities of VL suppression, by ART delivery method, by calendar period and overall
 # using age on continuous scale, ART regimen and scheme code as a 0/1 continuous variable (NNRTI/non-NNRTI, PLM/non-PLM)
 # 2-3 minutes
 
@@ -7,8 +7,7 @@ library(geepack)
 library(tictoc)
 library(writexl)
 library(ggplot2)
-library(ggeffects)
-library(miceadds)
+library(emmeans)
 library(stringr)
 
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
@@ -17,11 +16,10 @@ filepath_plot <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Outp
 
 which_scheme <- "All"         # current options: All, BON, PLM (analysis left-truncated at start of 2016), Other
 
-rf_vect <- c("courier","mhd_ind","sex","age_current","art_type_num")
+rf_vect <- c("courier","mhd_ind","sex","age_current_cat","art_type","calyear_current_cat","scheme_code")
 correlation_structure <- "exchangeable"
 courier_lag <- 0                 # in months: 0, 6, or 12
 VLS_threshold <- 400
-include_untested <- FALSE     # whether to include untested follow-up - will be set to unsuppressed VL every six months
 create_plots <- TRUE
 
 tic("Overall")
@@ -34,6 +32,7 @@ if(courier_lag==0)
   load(file=file.path(filepath_read,paste0("AfA_VL_lag",courier_lag,".RData")))
 }
 
+DTrna <- DTrna[!is.na(rna_v)]     # removing 'fake' tests
 DTrna[!scheme_code%in%c("BON","PLM"),scheme_code:="Other"]
 DTrna[,`:=`(scheme_code=factor(scheme_code,levels=c("BON","PLM","Other")),scheme_code_base=NULL)]
 setnames(DTrna,"art_type_cf","art_type")
@@ -44,36 +43,29 @@ if(which_scheme=="BON")
   DTrna <- DTrna[scheme_code=="BON"]
 if(which_scheme=="Other")
   DTrna <- DTrna[scheme_code=="Other"]
-if(which_scheme=="All")          # adjusting for scheme
-  rf_vect <- c(rf_vect,"scheme_code_num")
+if(which_scheme!="All")          # adjusting for scheme
+  rf_vect <- setdiff(rf_vect,"scheme_code")
 
 savename <- "probs_courier"
 if(courier_lag!=0)
   savename <- paste0(savename,"_lag",courier_lag)
-if(include_untested)
-  savename <- paste0(savename,"_with_untested")
 if(which_scheme!="All")
   savename <- paste0(savename,"_",which_scheme)
 savename <- paste0(savename,"_vls",VLS_threshold)
 print(savename)
 
-if(include_untested)
-{
-  DTrna[is.na(rna_v),rna_v:=VLS_threshold]
-} else
-{
-  DTrna <- DTrna[!is.na(rna_v)]
-}
-
 # formatting
-DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
+DTrna[,`:=`(sex=sex-1,
+            vls_ind=as.numeric(rna_v<VLS_threshold),
             patient=factor(patient),
-            calyear_num=as.numeric(rna_d-as.Date("2011-01-01"))/365.25,
-            art_type_num=as.numeric(art_type!="NNRTI+2NRTI"),
-            scheme_code_num=as.numeric(scheme_code!="PLM"))]
-DTrna[,art_type:=NULL]
+            age_current_cat=factor(cut(age_current,breaks=c(15,30,40,50,60,70,Inf),right=FALSE,labels=FALSE)),
+            art_type=factor(art_type,levels=c("NNRTI+2NRTI","II+2NRTI","PI+2NRTI")),
+            scheme_code=factor(scheme_code,levels=c("BON","PLM","Other")))]
+DTrna[,`:=`(age_current_cat=relevel(age_current_cat,3),
+            art_type_agg=art_type)]
+levels(DTrna$art_type_agg) <- c("NNRTI+2NRTI","PI+2NRTI","PI+2NRTI")
 
-# different calyear cutoffs when restricting to PLM
+# calendar year: different cutoffs when restricting to PLM
 if(which_scheme=="PLM")
 {
   DTrna[,calyear_current_cat:=cut(year(rna_d),breaks=c(2016,2018,2020,Inf),right=FALSE)]
@@ -81,8 +73,6 @@ if(which_scheme=="PLM")
 {
   DTrna[,calyear_current_cat:=cut(year(rna_d),breaks=c(2011,2014,2017,2020,Inf),right=FALSE)]
 }
-
-DTrna[,sex:=as.numeric(sex)-1]
 
 df_out <- data.table(col=c("retail_unadj","courier_unadj","","courier_adj","courier_unadj"))
 
@@ -92,38 +82,39 @@ reg_formula <- as.formula("vls_ind ~ courier")
 for(period in DTrna[,levels(calyear_current_cat)])
 {
   lreg <- geeglm(reg_formula,data=DTrna[calyear_current_cat==period],family="binomial",corstr="exchangeable",id=patient)
-  gres <- ggpredict(lreg,"courier")
+  emme <- summary(emmeans(lreg,"courier",type="response"))
   probs_gee_crude_df <- rbind(probs_gee_crude_df,
-                              data.table(calyear_cat=rep(period,2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
-  rm(lreg,gres)
+                              data.table(calyear_cat=rep(period,2),courier=c(0,1),probability=100*emme$prob,lower=100*emme$asymp.LCL,upper=100*emme$asymp.UCL))
+  rm(lreg,emme)
 }
 
 lreg <- geeglm(reg_formula,DTrna,family="binomial",corstr="exchangeable",id=patient)
-gres <- ggpredict(lreg,"courier")
+emme <- summary(emmeans(lreg,"courier",type="response"))
 probs_gee_crude_df <- rbind(probs_gee_crude_df,
-                            data.table(calyear_cat=rep("Overall",2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
-rm(reg_formula,lreg,gres)
+                            data.table(calyear_cat=rep("Overall",2),courier=c(0,1),probability=100*emme$prob,lower=100*emme$asymp.LCL,upper=100*emme$asymp.UCL))
+rm(reg_formula,lreg,emme)
 
 # adjusted probabilities, by calendar period and overall
 probs_gee_adj_df <- data.table(NULL)
-reg_formula <- as.formula(paste0("vls_ind ~",paste0(rf_vect,collapse="+")))
-print(reg_formula)
 for(period in DTrna[,levels(calyear_current_cat)])
 {
-  lreg <- geeglm(reg_formula,data=DTrna[calyear_current_cat==period],family="binomial",corstr="exchangeable",id=patient)
-  gres <- ggpredict(lreg,"courier")
+  rf_vect_cp <- setdiff(rf_vect,"calyear_current_cat")
+  if(period%in%c("[2011,2014)","[2014,2017)"))
+    rf_vect_cp[rf_vect_cp=="art_type"] <- "art_type_agg"
+  reg_formula_cp <- as.formula(paste0("vls_ind ~",paste0(rf_vect_cp,collapse="+")))
+  lreg <- geeglm(reg_formula_cp,data=DTrna[calyear_current_cat==period],family="binomial",corstr="exchangeable",id=patient)
+  emme <- summary(emmeans(lreg,"courier",type="response"))
   probs_gee_adj_df <- rbind(probs_gee_adj_df,
-                            data.table(calyear_cat=rep(period,2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
-  rm(lreg,gres)
+                            data.table(calyear_cat=rep(period,2),courier=c(0,1),probability=100*emme$prob,lower=100*emme$asymp.LCL,upper=100*emme$asymp.UCL))
+  rm(lreg,emme,rf_vect_cp,reg_formula_cp)
 }
 
-rm(reg_formula)
-reg_formula <- as.formula(paste0("vls_ind ~",paste0(rf_vect,collapse="+"),"+ calyear_num"))
+reg_formula <- as.formula(paste0("vls_ind ~",paste0(rf_vect,collapse="+")))
 lreg <- geeglm(reg_formula,data=DTrna,family="binomial",corstr="exchangeable",id=patient)
-gres <- ggpredict(lreg,"courier")
+emme <- summary(emmeans(lreg,"courier",type="response"))
 probs_gee_adj_df <- rbind(probs_gee_adj_df,
-                          data.table(calyear_cat=rep("Overall",2),courier=c(0,1),probability=100*gres$predicted,lower=100*gres$conf.low,upper=100*gres$conf.high))
-rm(reg_formula,lreg,gres)
+                          data.table(calyear_cat=rep("Overall",2),courier=c(0,1),probability=100*emme$prob,lower=100*emme$asymp.LCL,upper=100*emme$asymp.UCL))
+rm(reg_formula,lreg,emme)
 
 probs_gee_crude_df[,courier:=factor(courier)]
 probs_gee_adj_df[,courier:=factor(courier)]
@@ -138,10 +129,10 @@ if(which_scheme!="PLM")
 
 if(which_scheme!="BON")
 {
-  y_lim <- c(70,100)
+  y_lim <- c(75,100)
 } else
 {
-  y_lim <- c(30,100)
+  y_lim <- c(60,100)
 }
 
 if(create_plots)
