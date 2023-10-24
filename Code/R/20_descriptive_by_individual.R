@@ -53,18 +53,24 @@ DTu[,mhd_ever:=factor(mhd_ever,levels=c("No","Yes"))]
 DTu[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
 DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("BON","PLM","Other"))]
 
+remove_space <- function(x) gsub("\\( ","\\(",x)
+
 # no stratification
 overall_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),data=DTu)
 overall_df <- print(overall_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 overall_df <- data.table(data.frame(cbind(row.names(overall_df),overall_df)))
+overall_df[,Overall:=remove_space(Overall)]
 write_xlsx(overall_df,path=file.path(filepath_tables,"descriptive_individuals.xlsx"))
 
 # by "ever" courier delivery yes/no
-courier_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),
+courier_df <- CreateTableOne(vars = c("mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf","scheme_code_base"),
                              strata="courier_ever",
                              test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
 courier_df <- print(courier_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 courier_df <- data.table(data.frame(cbind(row.names(courier_df),courier_df)))
+cols <- c("Overall","No","Yes")
+courier_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
+courier_df <- courier_df[,.(V1,level,No,Yes,Overall)]
 write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_individuals_by_courier_status.xlsx"))
 
 # by medical scheme
@@ -73,6 +79,9 @@ scheme_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_c
                             test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
 scheme_df <- print(scheme_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 scheme_df <- data.table(data.frame(cbind(row.names(scheme_df),scheme_df)))
+cols <- c("Overall","BON","PLM","Other")
+scheme_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
+scheme_df <- scheme_df[,.(V1,level,BON,PLM,Other,Overall)]
 write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_individuals_by_medical_scheme.xlsx"))
 
 

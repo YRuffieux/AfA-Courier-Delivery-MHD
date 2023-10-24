@@ -1,4 +1,5 @@
 # descriptive table by VL measurement, stratified by various combinations of calendar period, courier status, and medical scheme
+# various descriptive plots
 
 library(tictoc)
 library(data.table)
@@ -51,40 +52,30 @@ print("Median number of VL measurements per patient overall: ")
 print(DTu[,quantile(N_tests,p=c(0.25,0.5,0.75))])
 rm(DTu)
 
-# stratified by courier status (yes/no)
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
-                                     strata="courier",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-df_out <- data.table(cbind(row.names(df_out),df_out))
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_courier_status.xlsx"))
+remove_space <- function(x) gsub("\\( ","\\(",x)
 
-# stratified by calendar period and courier status (no/yes)
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400"),
-                         strata=c("courier","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-df_out <- data.table(cbind(row.names(df_out),df_out))
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_courier_status.xlsx"))
+# stratified by courier status (yes/no)
+courier_df <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400","scheme_code"),
+                                     strata="courier",data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
+courier_df <- print(courier_df,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+courier_df <- data.table(cbind(row.names(courier_df),courier_df))
+cols <- c("Overall","No","Yes")
+courier_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
+courier_df <- courier_df[,.(V1,level,No,Yes,Overall)]
+write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_VL_by_courier_status.xlsx"))
 
 # stratified by medical scheme
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400","courier"),
+scheme_df <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400","courier"),
                          strata=c("scheme_code"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-df_out <- data.table(cbind(row.names(df_out),df_out))
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_scheme.xlsx"))
+scheme_df <- print(scheme_df,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
+scheme_df <- data.table(cbind(row.names(scheme_df),scheme_df))
+cols <- c("Overall","BON","PLM","Other")
+scheme_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
+scheme_df <- scheme_df[,.(V1,level,BON,PLM,Other,Overall)]
+write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_VL_by_scheme.xlsx"))
 
-# stratified by calendar period and medical scheme
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","art_type_cf","VLS_400","courier"),
-                         strata=c("scheme_code","calyear_current_cat"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-df_out <- data.table(cbind(row.names(df_out),df_out))
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_period_and_scheme.xlsx"))
-
-# stratified by courier status and medical scheme
-df_out <- CreateTableOne(vars = c("mhd_ind","sex","age_current_cat","age_current","calyear_current_cat","art_type_cf","VLS_400"),
-                         strata=c("courier","scheme_code"),data=DTrna,test=FALSE,addOverall=TRUE,includeNA=TRUE)
-df_out <- print(df_out,nonnormal="age_current",showAllLevels=TRUE,printToggle=FALSE)
-df_out <- data.table(cbind(row.names(df_out),df_out))
-write_xlsx(df_out,path=file.path(filepath_tables,"descriptive_VL_by_scheme_and_courier_status.xlsx"))
+# colorblind-friendly palette
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 # Number of VL tests by year and medical scheme (BON/PLM/Other)
 DTrna[,`:=`(scheme_code_cat=scheme_code,calyear=factor(year(rna_d)))]
@@ -95,6 +86,7 @@ pp_stack_scheme <- ggplot(data=DTrna,aes(x=calyear,fill=scheme_code_cat)) +
   theme_bw() +
   theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
         axis.title=element_text(size=10), axis.text=element_text(size=10),legend.position="bottom") +
+  scale_fill_manual(name="Scheme",labels=c("A","B","Other"),values=cbPalette[c(4,6,8)])+
   labs(x="Year of viral load test",y="Count",fill="Medical scheme")
 ggsave(pp_stack_scheme,filename=file.path(filepath_plot,"number_VL_test_by_year_and_scheme.png"),height=4,width=6,dpi=600)
 
@@ -104,10 +96,36 @@ pp_stack_regimen <- ggplot(data=DTrna,aes(x=calyear,fill=art_type_cf)) +
   theme_bw() +
   theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
         axis.title=element_text(size=10), axis.text=element_text(size=10),legend.position="bottom") +
+  scale_fill_manual(values=cbPalette[c(3,5,7)]) +
   labs(x="Year of viral load test",y="Count",fill="ART regimen")
 ggsave(pp_stack_regimen,filename=file.path(filepath_plot,"number_VL_test_by_year_and_regimen.png"),height=4,width=6,dpi=600)
 
+# Courier/retail status by scheme and month/year
+DTrna_temp <- copy(DTrna)
+DTrna_temp[,rna_m_y:=paste0(month(rna_d),"-",year(rna_d))]
+df_plot <- DTrna_temp[,.(p=sum(courier=="Yes")/.N,N=.N),by=.(scheme_code,rna_m_y,year(rna_d))]
+# df_plot_overall <- cbind(data.table(scheme_code="Overall"),DTrna_temp[,.(p=sum(courier=="Yes")/.N,N=.N),by=.(rna_m_y,year(rna_d))])
+# df_plot[,scheme_code:=factor(scheme_code,levels=c("Overall","BON","PLM","Other"))]
+# df_plot <- rbind(df_plot,df_plot_overall)
+# rm(df_plot_overall)
+df_plot[,rna_m_y:=factor(rna_m_y,levels= c(outer(paste0(1:12,"-"),2011:2022,FUN=paste0)))]
+df_plot[,x:=as.numeric(rna_m_y)]
+df_plot[,`:=`(lcl=p-qnorm(0.975)*sqrt(p*(1-p)/N),ucl=p+qnorm(0.975)*sqrt(p*(1-p)/N))]
+df_plot[,ucl:=pmin(ucl,1)]
+setorder(df_plot,"scheme_code","rna_m_y")
 
-rm(df_out)
+pp_line_courier <- ggplot(data=df_plot[scheme_code!="PLM" | (scheme_code=="PLM" & year>=2016) ],aes(x=x,y=p,color=scheme_code)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=lcl,ymax=ucl,fill=scheme_code),linetype=0,alpha=0.2) +
+  theme_bw() +
+  ylim(0,1) +
+  theme(panel.grid.minor=element_blank(),panel.grid.major=element_blank(),legend.position="bottom",
+        axis.text=element_text(size=6),
+        axis.text.x=element_text(angle=90,vjust=0.5)) +
+  scale_color_manual(name="Scheme",labels=c("A","B","Other"),values=cbPalette[c(4,6,8)])+
+  scale_fill_manual(name="Scheme",labels=c("A","B","Other"),values=cbPalette[c(4,6,8)])+
+  scale_x_continuous(breaks=seq(1,133,by=12),labels=paste0("01-",2011:2022)) +
+  labs(x="Month and year",y="Proportion on courier delivery")
+ggsave(pp_line_courier,filename=file.path(filepath_plot,"proportion_on_courier_over_time_by_scheme.png"),height=4,width=6,dpi=600)
 
 toc()
