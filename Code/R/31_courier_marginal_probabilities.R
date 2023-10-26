@@ -1,5 +1,5 @@
-# adjusted/unadjusted retail/courier marginal probabilities of VL suppression, by ART delivery method, by calendar period and overall
-# using age on continuous scale, ART regimen and scheme code as a 0/1 continuous variable (NNRTI/non-NNRTI, PLM/non-PLM)
+# adjusted + unadjusted retail/courier marginal probabilities of VL suppression, by ART delivery method, by calendar period and overall
+# adjusted analysis: using estimated marginal means (EMMs) conditioned on courier status
 # 2-3 minutes
 
 library(data.table)
@@ -20,7 +20,17 @@ rf_vect <- c("courier","mhd_ind","sex","age_current_cat","art_type","calyear_cur
 correlation_structure <- "exchangeable"
 courier_lag <- 0                 # in months: 0, 6, or 12
 VLS_threshold <- 400
-create_plots <- TRUE
+
+if(which_scheme!="All")
+{
+  filepath_write <- file.path(filepath_write,"Scheme-specific")
+  filepath_plot <- file.path(filepath_plot,"Scheme-specific")
+}
+if(courier_lag>0 || VLS_threshold!=400)
+{
+  filepath_write <- file.path(filepath_write,"Sensitivity")
+  filepath_plot <- file.path(filepath_plot,"Sensitivity")
+}
 
 tic("Overall")
 
@@ -73,8 +83,6 @@ if(which_scheme=="PLM")
 {
   DTrna[,calyear_current_cat:=cut(year(rna_d),breaks=c(2011,2014,2017,2020,Inf),right=FALSE)]
 }
-
-df_out <- data.table(col=c("retail_unadj","courier_unadj","","courier_adj","courier_unadj"))
 
 # unadjusted probabilities, by calendar period and overall
 probs_gee_crude_df <- data.table(NULL)
@@ -135,32 +143,29 @@ if(which_scheme!="BON")
   y_lim <- c(60,100)
 }
 
-if(create_plots)
-{
-  pp_gee_crude <- ggplot(probs_gee_crude_df[calyear_cat!="Overall"],aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
-    geom_point(size=2,position=position_dodge(0.5)) +
-    geom_errorbar(aes(ymax=upper,ymin=lower),width=0.5,position=position_dodge(0.5)) +
-    labs(x="Time period",y="Percentage virally suppressed") +
-    theme_bw() +
-    theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank()) +
-    scale_shape_discrete(labels=c("Retail","Courier"),name=NULL) +
-    scale_color_discrete(labels=c("Retail","Courier"),name=NULL) +
-    scale_x_discrete(labels=x_labels) +
-    ylim(y_lim)
-  ggsave(pp_gee_crude,filename=file.path(filepath_plot,paste0("crude_",savename,"_by_period.png")),height=4,width=6,dpi=600)
-  
-  pp_gee_adj <- ggplot(probs_gee_adj_df[calyear_cat!="Overall"],aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
-    geom_point(size=2,position=position_dodge(0.5)) +
-    geom_errorbar(aes(ymax=upper,ymin=lower),width=0.5,position=position_dodge(0.5)) +
-    labs(x="Time period",y="Percentage virally suppressed") +
-    theme_bw() +
-    theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank()) +
-    scale_shape_discrete(labels=c("Retail","Courier"),name=NULL) +
-    scale_color_discrete(labels=c("Retail","Courier"),name=NULL) +
-    scale_x_discrete(labels=x_labels) +
-    ylim(y_lim)
-  ggsave(pp_gee_adj,filename=file.path(filepath_plot,paste0("adj_",savename,"_by_period.png")),height=4,width=6,dpi=600)
-}
+pp_gee_crude <- ggplot(probs_gee_crude_df[calyear_cat!="Overall"],aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
+  geom_point(size=2,position=position_dodge(0.5)) +
+  geom_errorbar(aes(ymax=upper,ymin=lower),width=0.5,position=position_dodge(0.5)) +
+  labs(x="Time period",y="Percentage virally suppressed") +
+  theme_bw() +
+  theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank()) +
+  scale_shape_discrete(labels=c("Retail","Courier"),name=NULL) +
+  scale_color_discrete(labels=c("Retail","Courier"),name=NULL) +
+  scale_x_discrete(labels=x_labels) +
+  ylim(y_lim)
+ggsave(pp_gee_crude,filename=file.path(filepath_plot,paste0("unadj_",savename,"_by_period.png")),height=4,width=6,dpi=600)
+
+pp_gee_adj <- ggplot(probs_gee_adj_df[calyear_cat!="Overall"],aes(x=calyear_cat,y=probability,color=courier,shape=courier)) +
+  geom_point(size=2,position=position_dodge(0.5)) +
+  geom_errorbar(aes(ymax=upper,ymin=lower),width=0.5,position=position_dodge(0.5)) +
+  labs(x="Time period",y="Percentage virally suppressed") +
+  theme_bw() +
+  theme(panel.grid.major.x=element_blank(),panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank()) +
+  scale_shape_discrete(labels=c("Retail","Courier"),name=NULL) +
+  scale_color_discrete(labels=c("Retail","Courier"),name=NULL) +
+  scale_x_discrete(labels=x_labels) +
+  ylim(y_lim)
+ggsave(pp_gee_adj,filename=file.path(filepath_plot,paste0("adj_",savename,"_by_period.png")),height=4,width=6,dpi=600)
 
 # Excel output
 format_CI <- function(estimate,lower,upper,digits=2)

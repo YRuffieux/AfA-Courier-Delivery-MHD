@@ -6,6 +6,7 @@ library(data.table)
 library(writexl)
 library(tableone)
 library(ggplot2)
+library(scales)
 
 filepath_load <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
@@ -104,28 +105,26 @@ ggsave(pp_stack_regimen,filename=file.path(filepath_plot,"number_VL_test_by_year
 DTrna_temp <- copy(DTrna)
 DTrna_temp[,rna_m_y:=paste0(month(rna_d),"-",year(rna_d))]
 df_plot <- DTrna_temp[,.(p=sum(courier=="Yes")/.N,N=.N),by=.(scheme_code,rna_m_y,year(rna_d))]
-# df_plot_overall <- cbind(data.table(scheme_code="Overall"),DTrna_temp[,.(p=sum(courier=="Yes")/.N,N=.N),by=.(rna_m_y,year(rna_d))])
-# df_plot[,scheme_code:=factor(scheme_code,levels=c("Overall","BON","PLM","Other"))]
-# df_plot <- rbind(df_plot,df_plot_overall)
-# rm(df_plot_overall)
 df_plot[,rna_m_y:=factor(rna_m_y,levels= c(outer(paste0(1:12,"-"),2011:2022,FUN=paste0)))]
 df_plot[,x:=as.numeric(rna_m_y)]
 df_plot[,`:=`(lcl=p-qnorm(0.975)*sqrt(p*(1-p)/N),ucl=p+qnorm(0.975)*sqrt(p*(1-p)/N))]
 df_plot[,ucl:=pmin(ucl,1)]
 setorder(df_plot,"scheme_code","rna_m_y")
 
+lab <- c(outer(c("01-","07-"),2011:2022,FUN=paste0))
+lab <- lab[-length(lab)]
 pp_line_courier <- ggplot(data=df_plot[scheme_code!="PLM" | (scheme_code=="PLM" & year>=2016) ],aes(x=x,y=p,color=scheme_code)) +
   geom_line() +
   geom_ribbon(aes(ymin=lcl,ymax=ucl,fill=scheme_code),linetype=0,alpha=0.2) +
   theme_bw() +
-  ylim(0,1) +
   theme(panel.grid.minor=element_blank(),panel.grid.major=element_blank(),legend.position="bottom",
         axis.text=element_text(size=6),
         axis.text.x=element_text(angle=90,vjust=0.5)) +
   scale_color_manual(name="Scheme",labels=c("A","B","Other"),values=cbPalette[c(4,6,8)])+
   scale_fill_manual(name="Scheme",labels=c("A","B","Other"),values=cbPalette[c(4,6,8)])+
-  scale_x_continuous(breaks=seq(1,133,by=12),labels=paste0("01-",2011:2022)) +
-  labs(x="Month and year",y="Proportion on courier delivery")
+  scale_x_continuous(breaks=seq(1,133,by=6),labels=lab) +
+  scale_y_continuous(labels=scales::percent,limits=c(0,1)) +
+  labs(x="Month and year",y="Percentage on courier delivery")
 ggsave(pp_line_courier,filename=file.path(filepath_plot,"proportion_on_courier_over_time_by_scheme.png"),height=4,width=6,dpi=600)
 
 toc()

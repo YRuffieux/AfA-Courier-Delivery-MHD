@@ -15,11 +15,16 @@ filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Out
 
 which_scheme <- "All"         # current options: All, BON, PLM (analysis left-truncated at start of 2016), Other
 
-rf_vect <- c("courier","mhd_ind","sex","age_current_cat","calyear_current_cat","art_type")
+rf_vect <- c("courier","mhd_ind","sex","age_current_cat","art_type","scheme_code","calyear_current_cat")
 correlation_structure <- "exchangeable"
 courier_lag <- 0              # in months: 0, 6, or 12
 VLS_threshold <- 400
 include_untested <- FALSE     # whether to include untested follow-up - will be set to unsuppressed VL every six months
+
+if(which_scheme!="All")
+  filepath_write <- file.path(filepath_write,"Scheme-specific")
+if(courier_lag>0 || VLS_threshold!=400)
+  filepath_write <- file.path(filepath_write,"Sensitivity")
 
 tic("Overall")
 
@@ -41,8 +46,8 @@ if(which_scheme=="BON")
   DTrna <- DTrna[scheme_code=="BON"]
 if(which_scheme=="Other")
   DTrna <- DTrna[scheme_code=="Other"]
-if(which_scheme=="All")          # adjusting for scheme
-  rf_vect <- c(rf_vect,"scheme_code")
+if(which_scheme!="All")
+  rf_vect <- setdiff(rf_vect,"scheme_code")
 
 savename <- "ORs_courier"
 if(courier_lag!=0)

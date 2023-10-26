@@ -1,3 +1,6 @@
+# unadjusted and adjusted hazard ratios for predictors associated with switching ART delivery type
+# from two-state model with states "Courier" and "Retail"
+
 library(tictoc)
 library(data.table)
 library(survival)
@@ -9,6 +12,9 @@ filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
 which_scheme <- "All"          # the scheme AT BASELINE, one of: All, BON, PLM (then restricted to first six years of follow-up), Other
+
+if(which_scheme!="All")
+  filepath_tables <- file.path(filepath_tables,"Scheme-specific")
 
 tic("Overall")
 
