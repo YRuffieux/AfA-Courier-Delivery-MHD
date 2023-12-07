@@ -2,7 +2,8 @@
 # using generalized estimating equations to produce odds ratios and 95% CIs: https://www.jstatsoft.org/article/view/v015i02
 # overall, and by calendar period
 # exposure=courier status no/yes
-# ~10 minute runtime with all schemes
+# ~5-10 minute runtime
+# primary analysis: without Bonitas
 
 library(data.table)
 library(geepack)
@@ -13,18 +14,22 @@ library(stringr)
 filepath_read <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_write <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
-which_scheme <- "All"         # current options: All, BON, PLM (analysis left-truncated at start of 2016), Other
+which_scheme <- "noBON"         # current options: noBON (primary analysis), AllSchemes, BON, PLM (analysis left-truncated at start of 2016), Other
+
+stopifnot(which_scheme%in%c("noBON","AllSchemes","BON","PLM","Other"))
 
 rf_vect <- c("courier","mhd_ind","sex","age_current_cat","art_type","scheme_code","calyear_current_cat")
 correlation_structure <- "exchangeable"
 courier_lag <- 0              # in months: 0, 6, or 12
 VLS_threshold <- 400
-include_untested <- FALSE     # whether to include untested follow-up - will be set to unsuppressed VL every six months
 
-if(which_scheme!="All")
+if(!which_scheme%in%c("AllSchemes","noBON"))
   filepath_write <- file.path(filepath_write,"Scheme-specific")
-if(courier_lag>0 || VLS_threshold!=400)
+if(courier_lag>0 || VLS_threshold!=400 || which_scheme=="AllSchemes")
   filepath_write <- file.path(filepath_write,"Sensitivity")
+
+if(which_scheme!="noBON" && (courier_lag!=0 || VLS_threshold!=400))
+  stop("No need to do sensitivity analysis on scheme-specific data or data with Bonitas")
 
 tic("Overall")
 
@@ -36,36 +41,35 @@ if(courier_lag==0)
   load(file=file.path(filepath_read,paste0("AfA_VL_lag",courier_lag,".RData")))
 }
 
+DTrna <- DTrna[!is.na(rna_v)] # removing 'fake' tests
 DTrna[!scheme_code%in%c("BON","PLM"),scheme_code:="Other"]
-DTrna[,`:=`(scheme_code=factor(scheme_code,levels=c("BON","PLM","Other")),scheme_code_base=NULL)]
+if(which_scheme=="noBON")
+{
+  DTrna <- DTrna[scheme_code_base!="BON"]
+  DTrna <- DTrna[scheme_code!="BON"]
+  DTrna[,`:=`(scheme_code=factor(scheme_code,levels=c("PLM","Other"),labels=c(1,2)))]
+} else if(which_scheme=="AllSchemes")
+{
+  DTrna[,`:=`(scheme_code=factor(scheme_code,levels=c("BON","PLM","Other"),labels=1:3))]
+}
 setnames(DTrna,"art_type_cf","art_type")
+DTrna[,scheme_code_base:=NULL]
 
 if(which_scheme=="PLM")
   DTrna <- DTrna[scheme_code=="PLM" & year(rna_d)>=2016]
-if(which_scheme=="BON")
-  DTrna <- DTrna[scheme_code=="BON"]
 if(which_scheme=="Other")
   DTrna <- DTrna[scheme_code=="Other"]
-if(which_scheme!="All")
+if(which_scheme=="BON")
+  DTrna <- DTrna[scheme_code=="BON"]
+if(!which_scheme%in%c("AllSchemes","noBON"))
   rf_vect <- setdiff(rf_vect,"scheme_code")
 
 savename <- "ORs_courier"
 if(courier_lag!=0)
   savename <- paste0(savename,"_lag",courier_lag)
-if(include_untested)
-  savename <- paste0(savename,"_with_untested")
-if(which_scheme!="All")
-  savename <- paste0(savename,"_",which_scheme)
+savename <- paste0(savename,"_",which_scheme)
 savename <- paste0(savename,"_vls",VLS_threshold)
 print(savename)
-
-if(include_untested)
-{
-  DTrna[is.na(rna_v),rna_v:=VLS_threshold]
-} else
-{
-  DTrna <- DTrna[!is.na(rna_v)]
-}
 
 # formatting
 DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
@@ -74,7 +78,6 @@ DTrna[,`:=`(vls_ind=as.numeric(rna_v<VLS_threshold),
             sex=factor(sex),
             age_current_cat=factor(cut(age_current,breaks=c(15,30,40,50,60,70,Inf),right=FALSE,labels=FALSE)),
             art_type=factor(art_type,levels=c("NNRTI+2NRTI","II+2NRTI","PI+2NRTI"),labels=1:3),
-            scheme_code=factor(scheme_code,levels=c("BON","PLM","Other"),labels=1:3),
             patient=factor(patient))]
 DTrna[,`:=`(age_current_cat=relevel(age_current_cat,3),
             art_type_agg=as.character(art_type))]

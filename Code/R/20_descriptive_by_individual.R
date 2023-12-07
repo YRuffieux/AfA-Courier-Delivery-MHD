@@ -1,4 +1,5 @@
 # descriptive table by individual, overall and stratified by ART delivery type, and by baseline medical scheme
+# removing people who are in Bonitas at first RNA test
 
 library(tictoc)
 library(data.table)
@@ -51,7 +52,10 @@ DTu[mhd_ever==0,mhd_ever:="No"]
 DTu[mhd_ever==1,mhd_ever:="Yes"]
 DTu[,mhd_ever:=factor(mhd_ever,levels=c("No","Yes"))]
 DTu[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
-DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("BON","PLM","Other"))]
+
+# removing Bonitas
+DTu <- DTu[scheme_code_base!="BON"]
+DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("PLM","Other"))]
 
 remove_space <- function(x) gsub("\\( ","\\(",x)
 
@@ -79,9 +83,9 @@ scheme_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_c
                             test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
 scheme_df <- print(scheme_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 scheme_df <- data.table(data.frame(cbind(row.names(scheme_df),scheme_df)))
-cols <- c("Overall","BON","PLM","Other")
+cols <- c("Overall","PLM","Other")
 scheme_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
-scheme_df <- scheme_df[,.(V1,level,BON,PLM,Other,Overall)]
+scheme_df <- scheme_df[,.(V1,level,PLM,Other,Overall)]
 write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_individuals_by_medical_scheme.xlsx"))
 
 

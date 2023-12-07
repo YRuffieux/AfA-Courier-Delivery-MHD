@@ -1,5 +1,6 @@
 # unadjusted and adjusted hazard ratios for predictors associated with switching ART delivery type
 # from two-state model with states "Courier" and "Retail"
+# only done for main analysis (no Bonitas), restriction already done upstream (12_data_mgmt_mstate.R and 13_data_mgmt_mstate_split.R)
 
 library(tictoc)
 library(data.table)
@@ -11,10 +12,6 @@ library(stringr)
 filepath_processed <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
-which_scheme <- "All"          # the scheme AT BASELINE, one of: All, BON, PLM (then restricted to first six years of follow-up), Other
-
-if(which_scheme!="All")
-  filepath_tables <- file.path(filepath_tables,"Scheme-specific")
 
 tic("Overall")
 
@@ -23,19 +20,9 @@ load(file=file.path(filepath_processed,"AfA_mstate_split.RData"))
 covariates <- c("vls_ind","mhd_ind","sex","age_cat","calyear_cat","art_type")
 
 DTms_split[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
-DTms_split[,scheme_code_base:=factor(scheme_code_base,levels=c("BON","PLM","Other"))]
+DTms_split[,scheme_code_base:=factor(scheme_code_base,levels=c("PLM","Other"))]
 
 DTms_split[,`:=`(vls_ind=factor(vls_ind+1),mhd_ind=factor(mhd_ind+1))]
-
-if(which_scheme=="PLM")
-{
-   covariates <- setdiff(covariates,"calyear_cat")
-   DTms_split <- DTms_split[scheme_code_base=="PLM"]
-   DTms_split <- data.table(survSplit(Surv(start,end,status)~.,cut=365.25*6,data=DTms_split))
-   DTms_split <- DTms_split[end<=365.25*6]
-}
-if(which_scheme!="All")
-  DTms_split <- DTms_split[scheme_code_base==which_scheme]
 
 tic("Expanding risk factors by transition")
 
@@ -54,9 +41,7 @@ toc()
 
 covnames <- names(DTms_split)
 covariates_exp <- covnames[substr(covnames,nchar(covnames)-1,nchar(covnames))%in%c(".1",".2")]
-main_formula <- paste0("Surv(start,end,status)~",paste0(covariates_exp,collapse="+"),"+strata(trans)")
-if(which_scheme=="All")
-  main_formula <- paste0(main_formula,"+strata(scheme_code_base)")
+main_formula <- paste0("Surv(start,end,status)~",paste0(covariates_exp,collapse="+"),"+strata(trans) + strata(scheme_code_base)")
 main_formula <- as.formula(main_formula)
 print(main_formula)
 
@@ -66,9 +51,7 @@ tic("Unadjusted regressions")
 for(v in covariates)
 {
   V <- covnames[grepl(v,covnames) & substr(covnames,nchar(covnames)-1,nchar(covnames))%in%c(".1",".2")]
-  uni_formula <- paste0("Surv(start,end,status)~",paste0(V,collapse="+"),"+strata(trans)")
-  if(which_scheme=="All")
-    uni_formula <- paste0(uni_formula,"+strata(scheme_code_base)")
+  uni_formula <- paste0("Surv(start,end,status)~",paste0(V,collapse="+"),"+strata(trans) + strata(scheme_code_base)")
   uni_formula <- as.formula(uni_formula)
   res_uni <- coxph(uni_formula,data=DTms_split)
   X <- summary(res_uni)$coefficients
@@ -117,22 +100,15 @@ setorder(df_t2,"rf_short","rf_num")
 df_t2[,`:=`(rf_short=NULL,rf_num=NULL)]
 rm(Z)
 
-
 df_out <- list("retail_to_courier"=df_t1,"courier_to_retail"=df_t2)
 
-if(which_scheme=="All")
-{
-  write_xlsx(df_out,path=file.path(filepath_tables,"mstate_HRs_courier.xlsx"))
-} else
-{
-  write_xlsx(df_out,path=file.path(filepath_tables,paste0("mstate_HRs_courier_",which_scheme,".xlsx")))
-}
+write_xlsx(df_out,path=file.path(filepath_tables,"mstate_HRs_courier_noBON.xlsx"))
 
 X <- DTms_split[from=="Retail",.(events=sum(status),py=sum(end-start)/365.25),by=c("scheme_code_base","vls_ind")]
 setorder(X,"scheme_code_base","vls_ind")
 X[,rate:=events/py]
 
-X[scheme_code_base=="BON",rate[2]/rate[1]]
+X[scheme_code_base=="PLM",rate[2]/rate[1]]
 X[scheme_code_base=="Other",rate[2]/rate[1]]
 
 Y <- DTms_split[from=="Retail",.(events=sum(status),py=sum(end-start)/365.25),by=c("vls_ind")]

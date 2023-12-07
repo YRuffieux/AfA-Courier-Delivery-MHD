@@ -1,4 +1,5 @@
 # data preparation for multi-state analysis of courier delivery
+# removes individuals in Bonitas at baseline, and tests taken while in Bonitas
 
 library(data.table)
 library(tictoc)
@@ -18,6 +19,8 @@ load(file=file.path(filepath_read,"tblCOVERPERIODS.RData"))
 DTrna <- DTrna[!is.na(rna_v)]               # removing 'fake' tests
 setorder(DTrna,"patient","rna_d")
 
+# removing Bonitas data
+DTrna <- DTrna[scheme_code_base!="BON" & scheme_code!="BON"]
 DTrna <- DTrna[,.(patient,rna_d,start,end,scheme_code_base)]
 
 # fetching start/end dates from RNA table:  left-truncating at first VL measurement, censoring 6 months after the last VL measurement

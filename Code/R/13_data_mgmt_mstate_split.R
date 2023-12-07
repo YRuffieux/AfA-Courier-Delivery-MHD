@@ -1,4 +1,5 @@
 # setting up data for time-to-event analysis in mstate, with time-updated variables
+# removes individuals in Bonitas at baseline, and tests taken while in Bonitas
 
 library(data.table)
 library(tictoc)
@@ -25,9 +26,13 @@ calyear_breaks <- c(2011,2014,2017,2020)
 
 DTms <- DTms[from!="Entry",.(patient,start,end,from,to,status,scheme_code_base)]         # no need for entry state in this analysis
 
-DTrna <- DTrna[!is.na(rna_v),.(patient,rna_d,rna_v,art_type_cf)]        # removing 'fake' tests
+DTrna <- DTrna[!is.na(rna_v),.(patient,rna_d,rna_v,art_type_cf,scheme_code,scheme_code_base)]        # removing 'fake' tests
 setorder(DTrna,"patient","rna_d")
-DTrna[,`:=`(vls_ind=as.numeric(rna_v<400),rna_v=NULL)]
+
+# removing Bonitas data
+DTrna <- DTrna[scheme_code_base!="BON" & scheme_code!="BON"]
+
+DTrna[,`:=`(vls_ind=as.numeric(rna_v<400),rna_v=NULL,scheme_code_base=NULL,scheme_code=NULL)]
 
 DTrna[,delta:=vls_ind-data.table::shift(vls_ind,type="lag"),by="patient"]
 DTrna[is.na(delta),delta:=0]
@@ -41,10 +46,10 @@ N_retail_to_courier <- DTms[status==1 & from=="Retail" & to=="Courier",.N]
 N_py <- DTms[,sum(as.numeric(end-start))]
 N_py_courier <- DTms[from=="Courier",sum(as.numeric(end-start))]
 N_py_retail <- DTms[from=="Retail",sum(as.numeric(end-start))]
-N_status_BON <- DTms[scheme_code_base=="BON",sum(status)]
-N_py_BON <- DTms[scheme_code_base=="BON",sum(as.numeric(end-start))]
+N_status_PLM <- DTms[scheme_code_base=="PLM",sum(status)]
+N_py_PLM <- DTms[scheme_code_base=="PLM",sum(as.numeric(end-start))]
 
-# reminder: follow-up is already left-truncated at first VL measurement and right-censored six months after last VL measurement in 'AfA_mstate.RData'
+# follow-up is already left-truncated at first VL measurement and right-censored six months after last VL measurement in 'AfA_mstate.RData'
 DTms_split <- DTms[,.(patient,start,end,from,to,status,scheme_code_base)]
 DTms_split <- DTms_split[,.(patient,enter_d=start)][DTms_split,on="patient",mult="first"]   # date patient enters the study, need this for later
 DTms_split <- DTms_split[,.(patient,leave_d=end)][DTms_split,on="patient",mult="last"]      # date patient leaves the study, need this for later
@@ -144,8 +149,8 @@ stopifnot(N_retail_to_courier==DTms_split[status==1 & from=="Retail" & to=="Cour
 stopifnot(N_py==DTms_split[,sum(as.numeric(end-start))])
 stopifnot(N_py_courier==DTms_split[from=="Courier",sum(as.numeric(end-start))])
 stopifnot(N_py_retail==DTms_split[from=="Retail",sum(as.numeric(end-start))])
-stopifnot(N_status_BON==DTms_split[scheme_code_base=="BON",sum(status)])
-stopifnot(N_py_BON==DTms_split[scheme_code_base=="BON",sum(as.numeric(end-start))])
+stopifnot(N_status_PLM==DTms_split[scheme_code_base=="PLM",sum(status)])
+stopifnot(N_py_PLM==DTms_split[scheme_code_base=="PLM",sum(as.numeric(end-start))])
 stopifnot(DTms_split[,all(from!=to)])
 stopifnot(all(unique(DTms_split,by="patient")[,start]==0))
 
