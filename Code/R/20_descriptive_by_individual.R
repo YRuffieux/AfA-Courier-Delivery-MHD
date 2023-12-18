@@ -9,6 +9,8 @@ library(tableone)
 filepath_load <- "C:/ISPM/Data/HIV-mental disorders/AfA_Courier_Delivery/R/processed"
 filepath_tables <- "C:/ISPM/HomeDir/HIV-mental disorders/AfA_Courier_Delivery/Output/Tables"
 
+with_BON <- FALSE
+
 tic()
 
 load(file=file.path(filepath_load,"AfA_VL.RData"))
@@ -53,9 +55,15 @@ DTu[mhd_ever==1,mhd_ever:="Yes"]
 DTu[,mhd_ever:=factor(mhd_ever,levels=c("No","Yes"))]
 DTu[!scheme_code_base%in%c("BON","PLM"),scheme_code_base:="Other"]
 
-# removing Bonitas
-DTu <- DTu[scheme_code_base!="BON"]
-DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("PLM","Other"))]
+if(!with_BON)
+{
+  # removing BON
+  DTu <- DTu[scheme_code_base!="BON"]
+  DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("PLM","Other"))]
+} else
+{
+  DTu[,scheme_code_base:=factor(scheme_code_base,levels=c("PLM","Other","BON"))]
+}
 
 remove_space <- function(x) gsub("\\( ","\\(",x)
 
@@ -75,7 +83,14 @@ courier_df <- data.table(data.frame(cbind(row.names(courier_df),courier_df)))
 cols <- c("Overall","No","Yes")
 courier_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
 courier_df <- courier_df[,.(V1,level,No,Yes,Overall)]
-write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_individuals_by_courier_status.xlsx"))
+rm(cols)
+if(!with_BON)
+{
+  write_xlsx(courier_df,path=file.path(filepath_tables,"descriptive_individuals_by_courier_status.xlsx"))
+} else
+{
+  write_xlsx(courier_df,path=file.path(filepath_tables,"Sensitivity","descriptive_individuals_by_courier_status_allschemes.xlsx"))
+}
 
 # by medical scheme
 scheme_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_cat","age_base","calyear_base_cat","art_type_cf"),
@@ -83,10 +98,19 @@ scheme_df <- CreateTableOne(vars = c("courier_ever","mhd_ever","sex","age_base_c
                             test=FALSE,addOverall=TRUE,includeNA=TRUE,data=DTu)
 scheme_df <- print(scheme_df,nonnormal="age_base",showAllLevels=TRUE,printToggle=FALSE)
 scheme_df <- data.table(data.frame(cbind(row.names(scheme_df),scheme_df)))
-cols <- c("Overall","PLM","Other")
-scheme_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
-scheme_df <- scheme_df[,.(V1,level,PLM,Other,Overall)]
-write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_individuals_by_medical_scheme.xlsx"))
-
+if(!with_BON)
+{
+  cols <- c("Overall","PLM","Other")
+  scheme_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
+  scheme_df <- scheme_df[,.(V1,level,PLM,Other,Overall)]
+  write_xlsx(scheme_df,path=file.path(filepath_tables,"descriptive_individuals_by_scheme.xlsx"))
+} else
+{
+  cols <- c("Overall","PLM","Other","BON")
+  scheme_df[,(cols):=lapply(.SD,remove_space),.SDcols=cols]
+  scheme_df <- scheme_df[,.(V1,level,PLM,Other,BON,Overall)]
+  write_xlsx(scheme_df,path=file.path(filepath_tables,"Sensitivity","descriptive_individuals_by_scheme_allschemes.xlsx"))
+}
+rm(cols)
 
 toc()
